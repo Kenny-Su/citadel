@@ -3,14 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24.14.1 <25"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "vite --host 0.0.0.0",
     "dev:server": "tsx watch src/server/index.ts",
+    "start": "tsx src/server/index.ts",
     "build": "npm run build:client && npm run typecheck:server",
     "build:client": "vite build",
     "typecheck:server": "tsc -p tsconfig.server.json --noEmit",
     "test": "vitest run",
+    "test:production": "npm run build && vitest run tests/server/production.test.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

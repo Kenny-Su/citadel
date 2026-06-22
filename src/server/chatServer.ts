@@ -1,5 +1,6 @@
 import express from 'express';
 import { createServer } from 'node:http';
+import { join } from 'node:path';
 import { nanoid } from 'nanoid';
 import { Server } from 'socket.io';
 import {
@@ -18,6 +19,7 @@ import { validateDisplayName, validateMessageBody } from './validation.js';
 export type ChatServerOptions = {
   clientOrigin?: string;
   messageStore?: MessageStore;
+  staticDir?: string;
 };
 
 const DEFAULT_DB_PATH = 'data/chat.sqlite';
@@ -91,6 +93,15 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
       messages: messageStore.countMessages()
     });
   });
+
+  if (typeof options !== 'string' && options.staticDir) {
+    const indexPath = join(options.staticDir, 'index.html');
+
+    app.use(express.static(options.staticDir, { index: false }));
+    app.get(/.*/, (_request, response) => {
+      response.sendFile(indexPath);
+    });
+  }
 
   io.on('connection', (socket) => {
     socket.emit('room:state', getRoomState(DEFAULT_ROOM_ID));
