@@ -10,6 +10,7 @@ import {
   type ServerErrorPayload,
   type SystemEvent,
   type TimelineItem,
+  type TypingUpdatePayload,
   type User
 } from '../shared/chat';
 
@@ -18,6 +19,7 @@ const socket = io({
 });
 
 const DISPLAY_NAME_STORAGE_KEY = 'citadel.displayName';
+const TYPING_IDLE_TIMEOUT_MS = 1200;
 
 function getRoomIdFromPath() {
   const [, roomsSegment, roomSegment] = window.location.pathname.split('/');
@@ -48,6 +50,24 @@ function formatTime(value: string) {
     hour: '2-digit',
     minute: '2-digit'
   }).format(new Date(value));
+}
+
+function formatTypingText(users: User[]) {
+  if (users.length === 0) {
+    return '';
+  }
+
+  if (users.length === 1) {
+    return `${users[0].name} is typing...`;
+  }
+
+  if (users.length === 2) {
+    return `${users[0].name} and ${users[1].name} are typing...`;
+  }
+
+  const otherCount = users.length - 2;
+  const otherLabel = otherCount === 1 ? 'other' : 'others';
+  return `${users[0].name}, ${users[1].name}, and ${otherCount} ${otherLabel} are typing...`;
 }
 
 function normalizeDisplayName(input: unknown) {
@@ -104,10 +124,13 @@ export function App() {
   const [messageDraft, setMessageDraft] = React.useState('');
   const [connected, setConnected] = React.useState(false);
   const [users, setUsers] = React.useState<User[]>([]);
+  const [typingUsers, setTypingUsers] = React.useState<User[]>([]);
   const [timeline, setTimeline] = React.useState<TimelineItem[]>([]);
   const [notice, setNotice] = React.useState('');
   const listRef = React.useRef<HTMLDivElement>(null);
   const stickToBottomRef = React.useRef(true);
+  const typingTimerRef = React.useRef<number | null>(null);
+  const isTypingRef = React.useRef(false);
 
   React.useEffect(() => {
     syncRoomPath(roomId, 'replace');
@@ -126,6 +149,7 @@ export function App() {
   React.useEffect(() => {
     setRoomDraft(roomId);
     setUsers([]);
+    setTypingUsers([]);
     setTimeline([]);
     stickToBottomRef.current = true;
   }, [roomId]);
@@ -172,12 +196,21 @@ export function App() {
       setNotice(payload.message);
     }
 
+    function handleTypingUpdate(payload: TypingUpdatePayload) {
+      if (payload.roomId !== roomId) {
+        return;
+      }
+
+      setTypingUsers(payload.users.filter((user) => user.name !== joinedName));
+    }
+
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('room:state', handleRoomState);
     socket.on('message:new', handleNewMessage);
     socket.on('user:joined', handleSystemEvent);
     socket.on('user:left', handleSystemEvent);
+    socket.on('typing:update', handleTypingUpdate);
     socket.on('error:notice', handleError);
 
     return () => {
@@ -187,6 +220,7 @@ export function App() {
       socket.off('message:new', handleNewMessage);
       socket.off('user:joined', handleSystemEvent);
       socket.off('user:left', handleSystemEvent);
+      socket.off('typing:update', handleTypingUpdate);
       socket.off('error:notice', handleError);
     };
   }, [joinedName, roomId]);
@@ -203,6 +237,12 @@ export function App() {
 
     socket.emit('join', { name: joinedName, roomId });
   }, [connected, joinedName, roomId]);
+
+  React.useEffect(() => {
+    return () => {
+      stopTyping(true);
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!stickToBottomRef.current) {
@@ -238,6 +278,7 @@ export function App() {
     const previousName = joinedName;
 
     clearStoredDisplayName();
+    stopTyping(true);
     setJoinedName('');
     setDisplayName(previousName);
     setUsers([]);
@@ -250,9 +291,51 @@ export function App() {
     event.preventDefault();
     const nextRoomId = normalizeRoomId(roomDraft);
 
+    stopTyping(true);
     setNotice('');
     setRoomId(nextRoomId);
     syncRoomPath(nextRoomId);
+  }
+
+  function stopTyping(force = false) {
+    if (typingTimerRef.current) {
+      window.clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+
+    if (!isTypingRef.current && !force) {
+      return;
+    }
+
+    isTypingRef.current = false;
+    socket.emit('typing:stop');
+  }
+
+  function scheduleTypingStop() {
+    if (typingTimerRef.current) {
+      window.clearTimeout(typingTimerRef.current);
+    }
+
+    typingTimerRef.current = window.setTimeout(() => {
+      stopTyping();
+    }, TYPING_IDLE_TIMEOUT_MS);
+  }
+
+  function handleMessageDraftChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
+    const nextValue = event.target.value;
+    setMessageDraft(nextValue);
+
+    if (!joinedName || !socket.connected || !nextValue.trim()) {
+      stopTyping();
+      return;
+    }
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      socket.emit('typing:start');
+    }
+
+    scheduleTypingStop();
   }
 
   function sendMessage(event: React.FormEvent<HTMLFormElement>) {
@@ -264,6 +347,7 @@ export function App() {
       return;
     }
 
+    stopTyping();
     socket.emit('message:send', { body });
     setMessageDraft('');
     setNotice('');
@@ -282,6 +366,7 @@ export function App() {
 
   const canSend = connected && joinedName && messageDraft.trim().length > 0;
   const messageCount = messageDraft.trim().length;
+  const typingText = formatTypingText(typingUsers);
 
   return (
     <main className="app-shell">
@@ -365,10 +450,11 @@ export function App() {
             </div>
 
             <form className="composer" onSubmit={sendMessage}>
+              {typingText ? <div className="typing-indicator">{typingText}</div> : null}
               <textarea
                 value={messageDraft}
                 maxLength={MESSAGE_MAX_LENGTH}
-                onChange={(event) => setMessageDraft(event.target.value)}
+                onChange={handleMessageDraftChange}
                 placeholder="Write a message"
                 rows={2}
               />

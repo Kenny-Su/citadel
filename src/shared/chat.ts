@@ -49,6 +49,11 @@ export type ServerErrorPayload = {
   message: string;
 };
 
+export type TypingUpdatePayload = {
+  roomId: string;
+  users: User[];
+};
+
 export function normalizeRoomId(input: unknown): string {
   if (typeof input !== 'string') {
     return DEFAULT_ROOM_ID;

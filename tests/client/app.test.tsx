@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { getMockSocket } from '../test-utils/render-app';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getMockSocket, resetMockSocket, triggerSocketEvent } from '../test-utils/render-app';
 import { App } from '../../src/client/App';
 
 describe('App shell', () => {
@@ -8,15 +8,11 @@ describe('App shell', () => {
 
   beforeEach(() => {
     window.localStorage.clear();
-    mockSocket.connected = false;
-    mockSocket.connect.mockClear();
-    mockSocket.disconnect.mockClear();
-    mockSocket.emit.mockClear();
-    mockSocket.off.mockClear();
-    mockSocket.on.mockClear();
+    resetMockSocket();
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     cleanup();
     window.localStorage.clear();
     window.history.replaceState(null, '', '/');
@@ -119,5 +115,80 @@ describe('App shell', () => {
     render(<App />);
 
     expect(mockSocket.emit).toHaveBeenCalledWith('join', { name: 'Ada', roomId: 'design' });
+  });
+
+  it('emits typing start and idle stop while composing', () => {
+    vi.useFakeTimers();
+    window.localStorage.setItem('citadel.displayName', 'Ada');
+    mockSocket.connected = true;
+
+    render(<App />);
+    fireEvent.change(screen.getByPlaceholderText('Write a message'), { target: { value: 'h' } });
+
+    expect(mockSocket.emit).toHaveBeenCalledWith('typing:start');
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(mockSocket.emit).toHaveBeenCalledWith('typing:stop');
+  });
+
+  it('emits typing stop when a message sends', () => {
+    window.localStorage.setItem('citadel.displayName', 'Ada');
+    mockSocket.connected = true;
+
+    render(<App />);
+    act(() => {
+      triggerSocketEvent('connect');
+    });
+    fireEvent.change(screen.getByPlaceholderText('Write a message'), { target: { value: 'hello' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(mockSocket.emit).toHaveBeenCalledWith('typing:stop');
+    expect(mockSocket.emit).toHaveBeenCalledWith('message:send', { body: 'hello' });
+  });
+
+  it('renders incoming typing update copy without the current user', () => {
+    window.localStorage.setItem('citadel.displayName', 'Ada');
+    mockSocket.connected = true;
+
+    render(<App />);
+
+    act(() => {
+      triggerSocketEvent('typing:update', {
+        roomId: 'general',
+        users: [
+          { id: 'ada', name: 'Ada' },
+          { id: 'grace', name: 'Grace' },
+          { id: 'linus', name: 'Linus' },
+          { id: 'margaret', name: 'Margaret' }
+        ]
+      });
+    });
+
+    expect(screen.getByText('Grace, Linus, and 1 other are typing...')).toBeInTheDocument();
+  });
+
+  it('clears typing indicators on room changes', () => {
+    window.localStorage.setItem('citadel.displayName', 'Ada');
+    mockSocket.connected = true;
+
+    render(<App />);
+
+    act(() => {
+      triggerSocketEvent('typing:update', {
+        roomId: 'general',
+        users: [{ id: 'grace', name: 'Grace' }]
+      });
+    });
+
+    expect(screen.getByText('Grace is typing...')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Room name'), { target: { value: 'design' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }));
+
+    expect(screen.queryByText('Grace is typing...')).not.toBeInTheDocument();
+    expect(mockSocket.emit).toHaveBeenCalledWith('typing:stop');
   });
 });

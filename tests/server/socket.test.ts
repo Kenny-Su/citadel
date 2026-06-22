@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { io as Client, type Socket } from 'socket.io-client';
 import { createChatServer } from '../../src/server/chatServer.js';
 import { createSqliteMessageStore } from '../../src/server/messageStore.js';
-import type { ChatMessage, RoomState, SystemEvent } from '../../src/shared/chat.js';
+import type { ChatMessage, RoomState, SystemEvent, TypingUpdatePayload } from '../../src/shared/chat.js';
 
 function once<T>(socket: Socket, event: string) {
   return new Promise<T>((resolve) => {
@@ -169,5 +169,87 @@ describe('chat socket', () => {
     const adaState = await joinClient(ada, 'Ada', 'design');
     expect(adaState.roomId).toBe('design');
     expect(adaState.users.map((user) => user.name)).toEqual(['Ada']);
+  });
+
+  it('broadcasts typing updates to users in the same room', async () => {
+    const ada = await connectClient();
+    const grace = await connectClient();
+
+    await joinClient(ada, 'Ada', 'general');
+    await joinClient(grace, 'Grace', 'general');
+
+    const graceSawTyping = once<TypingUpdatePayload>(grace, 'typing:update');
+    ada.emit('typing:start');
+
+    expect(await graceSawTyping).toMatchObject({
+      roomId: 'general',
+      users: [{ name: 'Ada' }]
+    });
+  });
+
+  it('does not broadcast typing updates across rooms', async () => {
+    const ada = await connectClient();
+    const grace = await connectClient();
+
+    await joinClient(ada, 'Ada', 'general');
+    await joinClient(grace, 'Grace', 'design');
+
+    let graceReceivedTyping = false;
+    grace.once('typing:update', () => {
+      graceReceivedTyping = true;
+    });
+
+    ada.emit('typing:start');
+    await wait(40);
+
+    expect(graceReceivedTyping).toBe(false);
+  });
+
+  it('clears typing state when a user sends a message', async () => {
+    const ada = await connectClient();
+    const grace = await connectClient();
+
+    await joinClient(ada, 'Ada', 'general');
+    await joinClient(grace, 'Grace', 'general');
+
+    const graceSawTyping = once<TypingUpdatePayload>(grace, 'typing:update');
+    ada.emit('typing:start');
+    expect((await graceSawTyping).users.map((user) => user.name)).toEqual(['Ada']);
+
+    const graceSawStop = once<TypingUpdatePayload>(grace, 'typing:update');
+    ada.emit('message:send', { body: 'done typing' });
+    expect((await graceSawStop).users).toEqual([]);
+  });
+
+  it('clears typing state when a user switches rooms', async () => {
+    const ada = await connectClient();
+    const grace = await connectClient();
+
+    await joinClient(ada, 'Ada', 'general');
+    await joinClient(grace, 'Grace', 'general');
+
+    const graceSawTyping = once<TypingUpdatePayload>(grace, 'typing:update');
+    ada.emit('typing:start');
+    expect((await graceSawTyping).users.map((user) => user.name)).toEqual(['Ada']);
+
+    const graceSawStop = once<TypingUpdatePayload>(grace, 'typing:update');
+    ada.emit('join', { name: 'Ada', roomId: 'design' });
+    expect((await graceSawStop).users).toEqual([]);
+  });
+
+  it('clears typing state when a user disconnects', async () => {
+    const ada = await connectClient();
+    const grace = await connectClient();
+
+    await joinClient(ada, 'Ada', 'general');
+    await joinClient(grace, 'Grace', 'general');
+
+    const graceSawTyping = once<TypingUpdatePayload>(grace, 'typing:update');
+    ada.emit('typing:start');
+    expect((await graceSawTyping).users.map((user) => user.name)).toEqual(['Ada']);
+
+    const graceSawStop = once<TypingUpdatePayload>(grace, 'typing:update');
+    ada.close();
+    expect((await graceSawStop).users).toEqual([]);
   });
 });

@@ -46,6 +46,7 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
   });
 
   const sessions = new Map<string, UserSession>();
+  const typingByRoom = new Map<string, Set<string>>();
 
   function getRoomState(roomId: string): RoomState {
     return {
@@ -56,6 +57,31 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
         .sort((a, b) => a.name.localeCompare(b.name)),
       messages: messageStore.listRecentMessages(roomId, MESSAGE_HISTORY_LIMIT)
     };
+  }
+
+  function clearTyping(socketId: string, roomId: string) {
+    const typingSocketIds = typingByRoom.get(roomId);
+
+    if (!typingSocketIds?.delete(socketId)) {
+      return;
+    }
+
+    if (typingSocketIds.size === 0) {
+      typingByRoom.delete(roomId);
+    }
+
+    emitTypingUpdate(roomId);
+  }
+
+  function emitTypingUpdate(roomId: string) {
+    const typingSocketIds = typingByRoom.get(roomId) ?? new Set<string>();
+    const users = [...typingSocketIds]
+      .map((socketId) => sessions.get(socketId))
+      .filter((session): session is UserSession => Boolean(session && session.roomId === roomId))
+      .map((session) => session.user)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    io.to(roomId).emit('typing:update', { roomId, users });
   }
 
   app.get('/health', (_request, response) => {
@@ -83,6 +109,7 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
       sessions.set(socket.id, { roomId, user });
 
       if (previousSession && previousSession.roomId !== roomId) {
+        clearTyping(socket.id, previousSession.roomId);
         socket.leave(previousSession.roomId);
         socket.to(previousSession.roomId).emit('user:left', {
           id: nanoid(),
@@ -133,7 +160,36 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
       };
 
       messageStore.saveMessage(message);
+      clearTyping(socket.id, session.roomId);
       io.to(session.roomId).emit('message:new', message);
+    });
+
+    socket.on('typing:start', () => {
+      const session = sessions.get(socket.id);
+
+      if (!session) {
+        return;
+      }
+
+      const typingSocketIds = typingByRoom.get(session.roomId) ?? new Set<string>();
+
+      if (typingSocketIds.has(socket.id)) {
+        return;
+      }
+
+      typingSocketIds.add(socket.id);
+      typingByRoom.set(session.roomId, typingSocketIds);
+      emitTypingUpdate(session.roomId);
+    });
+
+    socket.on('typing:stop', () => {
+      const session = sessions.get(socket.id);
+
+      if (!session) {
+        return;
+      }
+
+      clearTyping(socket.id, session.roomId);
     });
 
     socket.on('disconnect', () => {
@@ -144,6 +200,7 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
       }
 
       sessions.delete(socket.id);
+      clearTyping(socket.id, session.roomId);
       socket.to(session.roomId).emit('user:left', {
         id: nanoid(),
         type: 'user:left',

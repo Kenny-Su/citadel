@@ -280,6 +280,12 @@ textarea:focus {
   padding: 16px 24px;
 }
 
+.typing-indicator {
+  color: #66756c;
+  font-size: 0.9rem;
+  min-height: 20px;
+}
+
 .composer textarea {
   min-height: 70px;
   resize: vertical;
