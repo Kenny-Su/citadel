@@ -132,7 +132,6 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
       }
 
       socket.join(roomId);
-      socket.emit('room:state', getRoomState(roomId));
 
       if (!previousSession || previousSession.roomId !== roomId) {
         socket.to(roomId).emit('user:joined', {
@@ -141,9 +140,9 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
           user,
           createdAt: new Date().toISOString()
         });
-      } else {
-        io.to(roomId).emit('room:state', getRoomState(roomId));
       }
+
+      io.to(roomId).emit('room:state', getRoomState(roomId));
     });
 
     socket.on('message:send', (payload: SendMessagePayload = { body: '' }) => {

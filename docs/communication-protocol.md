@@ -72,7 +72,12 @@ no payload
 
 ### `room:state`
 
-Sent with the current room users and recent messages.
+Sent with the current room users and recent messages. This is the authoritative
+presence payload for the online counter.
+
+The server sends it when a socket connects, after a user joins or changes rooms,
+and after a user disconnects. After a successful join, every socket in that room
+receives the same updated room state.
 
 ```ts
 {
@@ -99,7 +104,8 @@ Sent when a new message is saved.
 
 ### `user:joined`
 
-Sent when another user joins the room.
+Sent when another user joins the room. This event is for the chat timeline; use
+`room:state` for the full online user list.
 
 ```ts
 {
@@ -112,7 +118,8 @@ Sent when another user joins the room.
 
 ### `user:left`
 
-Sent when a user leaves or disconnects.
+Sent when a user leaves or disconnects. This event is for the chat timeline; use
+`room:state` for the full online user list.
 
 ```ts
 {
@@ -150,11 +157,11 @@ Sent when the client sends invalid data.
 2. The server sends `room:state`.
 3. The browser sends `join`.
 4. The server validates the user and room.
-5. The server sends the updated `room:state`.
+5. The server sends the updated `room:state` to every socket in the room.
 6. The browser sends messages with `message:send`.
 7. The server saves messages and broadcasts `message:new`.
 8. Typing status is handled with `typing:start`, `typing:stop`, and `typing:update`.
-9. When a user disconnects, the server broadcasts `user:left`.
+9. When a user disconnects, the server broadcasts `user:left` and then the updated `room:state`.
 
 ## Validation
 
@@ -164,4 +171,3 @@ Sent when the client sends invalid data.
 - Messages must be 500 characters or fewer.
 - Room IDs can use lowercase letters, numbers, and hyphens.
 - Room IDs must be 32 characters or fewer.
-

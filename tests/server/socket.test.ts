@@ -71,8 +71,10 @@ describe('chat socket', () => {
     await joinClient(ada, 'Ada', 'general');
 
     const adaSawJoin = once<SystemEvent>(ada, 'user:joined');
+    const adaSawUpdatedPresence = once<RoomState>(ada, 'room:state');
     await joinClient(grace, 'Grace', 'general');
     expect((await adaSawJoin).user.name).toBe('Grace');
+    expect((await adaSawUpdatedPresence).users.map((user) => user.name)).toEqual(['Ada', 'Grace']);
 
     const messageForAda = once<ChatMessage>(ada, 'message:new');
     const messageForGrace = once<ChatMessage>(grace, 'message:new');
