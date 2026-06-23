@@ -90,6 +90,12 @@ button:disabled {
   min-height: 44px;
 }
 
+.copy-link-button {
+  background: #e1e8e4;
+  color: #244238;
+  white-space: nowrap;
+}
+
 .sr-only {
   clip: rect(0, 0, 0, 0);
   border: 0;
@@ -390,6 +396,10 @@ textarea:focus {
 
   .room-switcher {
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .copy-link-button {
+    width: 100%;
   }
 
   .message-list,

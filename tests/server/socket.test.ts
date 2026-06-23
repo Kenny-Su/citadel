@@ -6,7 +6,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { io as Client, type Socket } from 'socket.io-client';
 import { createChatServer } from '../../src/server/chatServer.js';
 import { createSqliteMessageStore } from '../../src/server/messageStore.js';
-import type { ChatMessage, RoomState, SystemEvent, TypingUpdatePayload } from '../../src/shared/chat.js';
+import type {
+  ChatMessage,
+  RoomState,
+  ServerErrorPayload,
+  SystemEvent,
+  TypingUpdatePayload
+} from '../../src/shared/chat.js';
 
 function once<T>(socket: Socket, event: string) {
   return new Promise<T>((resolve) => {
@@ -32,7 +38,11 @@ describe('chat socket', () => {
     dbPath = join(tempDir, 'chat.sqlite');
     server = createChatServer({
       clientOrigin: '*',
-      messageStore: createSqliteMessageStore(dbPath)
+      messageStore: createSqliteMessageStore(dbPath),
+      messageRateLimit: {
+        maxMessages: 5,
+        windowMs: 80
+      }
     });
     await new Promise<void>((resolve) => server.httpServer.listen(0, '127.0.0.1', resolve));
     const address = server.httpServer.address() as AddressInfo;
@@ -111,7 +121,11 @@ describe('chat socket', () => {
 
     server = createChatServer({
       clientOrigin: '*',
-      messageStore: createSqliteMessageStore(dbPath)
+      messageStore: createSqliteMessageStore(dbPath),
+      messageRateLimit: {
+        maxMessages: 5,
+        windowMs: 80
+      }
     });
     await new Promise<void>((resolve) => server.httpServer.listen(0, '127.0.0.1', resolve));
     const address = server.httpServer.address() as AddressInfo;
@@ -253,5 +267,76 @@ describe('chat socket', () => {
     const graceSawStop = once<TypingUpdatePayload>(grace, 'typing:update');
     ada.close();
     expect((await graceSawStop).users).toEqual([]);
+  });
+
+  it('rejects rapid messages without saving or broadcasting them', async () => {
+    const ada = await connectClient();
+    const grace = await connectClient();
+
+    await joinClient(ada, 'Ada', 'general');
+    await joinClient(grace, 'Grace', 'general');
+
+    for (let index = 1; index <= 5; index += 1) {
+      const messageForAda = once<ChatMessage>(ada, 'message:new');
+      ada.emit('message:send', { body: `message ${index}` });
+      expect(await messageForAda).toMatchObject({ body: `message ${index}` });
+    }
+
+    let graceReceivedRejectedMessage = false;
+    grace.on('message:new', (message: ChatMessage) => {
+      if (message.body === 'message 6') {
+        graceReceivedRejectedMessage = true;
+      }
+    });
+
+    const errorForAda = once<ServerErrorPayload>(ada, 'error:notice');
+    ada.emit('message:send', { body: 'message 6' });
+
+    expect(await errorForAda).toEqual({ message: 'Slow down before sending another message.' });
+    await wait(40);
+    expect(graceReceivedRejectedMessage).toBe(false);
+    expect(server.messageStore.listRecentMessages('general')).toHaveLength(5);
+  });
+
+  it('accepts messages again after the rate limit window passes', async () => {
+    const ada = await connectClient();
+
+    await joinClient(ada, 'Ada', 'general');
+
+    for (let index = 1; index <= 5; index += 1) {
+      const messageForAda = once<ChatMessage>(ada, 'message:new');
+      ada.emit('message:send', { body: `burst ${index}` });
+      expect(await messageForAda).toMatchObject({ body: `burst ${index}` });
+    }
+
+    await wait(90);
+
+    const laterMessage = once<ChatMessage>(ada, 'message:new');
+    ada.emit('message:send', { body: 'after window' });
+
+    expect(await laterMessage).toMatchObject({ body: 'after window' });
+  });
+
+  it('clears message rate limit state when a socket disconnects', async () => {
+    const ada = await connectClient();
+
+    await joinClient(ada, 'Ada', 'general');
+
+    for (let index = 1; index <= 5; index += 1) {
+      const messageForAda = once<ChatMessage>(ada, 'message:new');
+      ada.emit('message:send', { body: `before disconnect ${index}` });
+      expect(await messageForAda).toMatchObject({ body: `before disconnect ${index}` });
+    }
+
+    ada.close();
+    await wait(20);
+
+    const reconnectedAda = await connectClient();
+    await joinClient(reconnectedAda, 'Ada', 'general');
+
+    const messageAfterReconnect = once<ChatMessage>(reconnectedAda, 'message:new');
+    reconnectedAda.emit('message:send', { body: 'after reconnect' });
+
+    expect(await messageAfterReconnect).toMatchObject({ body: 'after reconnect' });
   });
 });

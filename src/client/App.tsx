@@ -35,6 +35,10 @@ function getRoomPath(roomId: string) {
   return `/rooms/${roomId}`;
 }
 
+function getRoomUrl(roomId: string) {
+  return `${window.location.origin}${getRoomPath(roomId)}`;
+}
+
 function syncRoomPath(roomId: string, mode: 'push' | 'replace' = 'push') {
   const path = getRoomPath(roomId);
 
@@ -112,6 +116,30 @@ function clearStoredDisplayName() {
     window.localStorage.removeItem(DISPLAY_NAME_STORAGE_KEY);
   } catch {
     // Storage can be unavailable in private or restricted browser contexts.
+  }
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '-1000px';
+  textarea.style.left = '-1000px';
+  document.body.append(textarea);
+  textarea.select();
+
+  try {
+    if (!document.execCommand('copy')) {
+      throw new Error('Copy command failed');
+    }
+  } finally {
+    textarea.remove();
   }
 }
 
@@ -297,6 +325,15 @@ export function App() {
     syncRoomPath(nextRoomId);
   }
 
+  async function copyRoomLink() {
+    try {
+      await copyText(getRoomUrl(roomId));
+      setNotice('Room link copied.');
+    } catch {
+      setNotice('Could not copy the room link.');
+    }
+  }
+
   function stopTyping(force = false) {
     if (typingTimerRef.current) {
       window.clearTimeout(typingTimerRef.current);
@@ -400,6 +437,9 @@ export function App() {
               />
               <button type="submit">Go</button>
             </form>
+            <button className="copy-link-button" type="button" onClick={copyRoomLink}>
+              Copy link
+            </button>
             <div className={connected ? 'status online' : 'status'}>
               <span aria-hidden="true" />
               {connected ? 'Online' : 'Offline'}

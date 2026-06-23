@@ -19,14 +19,26 @@ import { validateDisplayName, validateMessageBody } from './validation.js';
 export type ChatServerOptions = {
   clientOrigin?: string;
   messageStore?: MessageStore;
+  messageRateLimit?: {
+    maxMessages: number;
+    windowMs: number;
+  };
   staticDir?: string;
 };
 
 const DEFAULT_DB_PATH = 'data/chat.sqlite';
+const DEFAULT_MESSAGE_RATE_LIMIT = {
+  maxMessages: 5,
+  windowMs: 10_000
+};
 
 type UserSession = {
   roomId: string;
   user: User;
+};
+
+type MessageRateState = {
+  acceptedAt: number[];
 };
 
 export function createChatServer(options: ChatServerOptions | string = {}) {
@@ -37,6 +49,10 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
       ? createSqliteMessageStore(process.env.CHAT_DB_PATH ?? DEFAULT_DB_PATH)
       : (options.messageStore ??
         createSqliteMessageStore(process.env.CHAT_DB_PATH ?? DEFAULT_DB_PATH));
+  const messageRateLimit =
+    typeof options === 'string'
+      ? DEFAULT_MESSAGE_RATE_LIMIT
+      : (options.messageRateLimit ?? DEFAULT_MESSAGE_RATE_LIMIT);
 
   const app = express();
   const httpServer = createServer(app);
@@ -49,6 +65,7 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
 
   const sessions = new Map<string, UserSession>();
   const typingByRoom = new Map<string, Set<string>>();
+  const messageRateBySocket = new Map<string, MessageRateState>();
 
   function getRoomState(roomId: string): RoomState {
     return {
@@ -84,6 +101,22 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     io.to(roomId).emit('typing:update', { roomId, users });
+  }
+
+  function canAcceptMessage(socketId: string) {
+    const now = Date.now();
+    const windowStart = now - messageRateLimit.windowMs;
+    const state = messageRateBySocket.get(socketId) ?? { acceptedAt: [] };
+    state.acceptedAt = state.acceptedAt.filter((acceptedAt) => acceptedAt > windowStart);
+
+    if (state.acceptedAt.length >= messageRateLimit.maxMessages) {
+      messageRateBySocket.set(socketId, state);
+      return false;
+    }
+
+    state.acceptedAt.push(now);
+    messageRateBySocket.set(socketId, state);
+    return true;
   }
 
   app.get('/health', (_request, response) => {
@@ -160,6 +193,11 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
         return;
       }
 
+      if (!canAcceptMessage(socket.id)) {
+        socket.emit('error:notice', { message: 'Slow down before sending another message.' });
+        return;
+      }
+
       const message: ChatMessage = {
         id: nanoid(),
         roomId: session.roomId,
@@ -204,6 +242,7 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
 
     socket.on('disconnect', () => {
       const session = sessions.get(socket.id);
+      messageRateBySocket.delete(socket.id);
 
       if (!session) {
         return;

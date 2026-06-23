@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMockSocket, resetMockSocket, triggerSocketEvent } from '../test-utils/render-app';
 import { App } from '../../src/client/App';
@@ -9,6 +9,12 @@ describe('App shell', () => {
   beforeEach(() => {
     window.localStorage.clear();
     resetMockSocket();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: vi.fn().mockResolvedValue(undefined)
+      }
+    });
   });
 
   afterEach(() => {
@@ -52,6 +58,60 @@ describe('App shell', () => {
 
     expect(screen.getByText('#design')).toBeInTheDocument();
     expect(window.location.pathname).toBe('/rooms/design');
+  });
+
+  it('copies the current room link with the Clipboard API', async () => {
+    window.history.replaceState(null, '', '/rooms/general');
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:3000/rooms/general');
+    });
+    expect(await screen.findByText('Room link copied.')).toBeInTheDocument();
+  });
+
+  it('shows a notice when copying the room link fails', async () => {
+    vi.mocked(navigator.clipboard.writeText).mockRejectedValueOnce(new Error('blocked'));
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+
+    expect(await screen.findByText('Could not copy the room link.')).toBeInTheDocument();
+  });
+
+  it('falls back to the copy command when the Clipboard API is unavailable', async () => {
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined
+    });
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+
+    await waitFor(() => {
+      expect(execCommand).toHaveBeenCalledWith('copy');
+    });
+    expect(await screen.findByText('Room link copied.')).toBeInTheDocument();
+  });
+
+  it('copies the updated room link after switching rooms', async () => {
+    window.history.replaceState(null, '', '/rooms/general');
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('Room name'), { target: { value: 'design' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:3000/rooms/design');
+    });
   });
 
   it('uses a valid saved display name to enter the chat view', () => {
