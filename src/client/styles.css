@@ -45,7 +45,7 @@ button:disabled {
   padding: 20px;
 }
 
-.chat-panel,
+.workspace-panel,
 .presence-panel {
   background: #fbfcfb;
   border: 1px solid #d9dfdb;
@@ -53,13 +53,13 @@ button:disabled {
   box-shadow: 0 20px 60px rgba(28, 37, 32, 0.08);
 }
 
-.chat-panel {
+.workspace-panel {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   min-height: 0;
 }
 
-.chat-header {
+.workspace-header {
   align-items: center;
   border-bottom: 1px solid #e4e8e5;
   display: flex;
@@ -74,20 +74,42 @@ button:disabled {
   gap: 12px;
 }
 
-.room-label {
+.space-label {
   color: #315c50;
   font-weight: 800;
   margin: 5px 0 0;
 }
 
-.room-switcher {
+.space-switcher {
   display: grid;
   gap: 8px;
   grid-template-columns: minmax(120px, 180px) auto;
 }
 
-.room-switcher input {
+.space-switcher input {
   min-height: 44px;
+}
+
+.app-tabs {
+  background: #eef1ed;
+  border-radius: 8px;
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+}
+
+.app-tabs button {
+  background: transparent;
+  color: #435148;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.app-tabs button.active {
+  background: #ffffff;
+  color: #1f6f54;
+  box-shadow: 0 1px 4px rgba(28, 37, 32, 0.12);
 }
 
 .copy-link-button {
@@ -279,6 +301,93 @@ textarea:focus {
   padding: 2px 0;
 }
 
+.game-surface {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 24px;
+}
+
+.game-status,
+.game-meta {
+  align-items: center;
+  color: #4e5c54;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: center;
+}
+
+.game-status strong {
+  color: #1f2a24;
+}
+
+.chess-board {
+  aspect-ratio: 1;
+  border: 1px solid #244238;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  width: min(68vh, 560px, 100%);
+}
+
+.chess-square {
+  align-items: center;
+  aspect-ratio: 1;
+  border-radius: 0;
+  color: #18211c;
+  display: flex;
+  font-size: clamp(1.5rem, 5vw, 3rem);
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+}
+
+.chess-square.light {
+  background: #f1ead8;
+}
+
+.chess-square.dark {
+  background: #7d9b8d;
+}
+
+.chess-square.selected {
+  box-shadow: inset 0 0 0 4px #d89b24;
+}
+
+.snake-board {
+  aspect-ratio: 20 / 16;
+  background: #17201b;
+  border: 1px solid #244238;
+  display: grid;
+  gap: 1px;
+  width: min(76vh, 720px, 100%);
+}
+
+.snake-cell {
+  background: #213028;
+  min-width: 0;
+}
+
+.snake-cell.occupied {
+  border-radius: 3px;
+}
+
+.snake-cell.food {
+  background: #d89b24;
+  border-radius: 999px;
+}
+
+.snake-controls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(72px, 1fr));
+  max-width: 420px;
+  width: 100%;
+}
+
 .composer {
   border-top: 1px solid #e4e8e5;
   display: grid;
@@ -383,7 +492,7 @@ textarea:focus {
     order: 2;
   }
 
-  .chat-header {
+  .workspace-header {
     align-items: stretch;
     flex-direction: column;
     padding: 18px;
@@ -394,8 +503,13 @@ textarea:focus {
     flex-direction: column;
   }
 
-  .room-switcher {
+  .space-switcher {
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .app-tabs {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .copy-link-button {
@@ -416,5 +530,9 @@ textarea:focus {
 
   .message {
     max-width: 92%;
+  }
+
+  .snake-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

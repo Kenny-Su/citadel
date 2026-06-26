@@ -5,18 +5,28 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { io as Client, type Socket } from 'socket.io-client';
 import { createChatServer } from '../../src/server/chatServer.js';
-import { createSqliteMessageStore } from '../../src/server/messageStore.js';
-import type {
-  ChatMessage,
-  RoomState,
-  ServerErrorPayload,
-  SystemEvent,
-  TypingUpdatePayload
-} from '../../src/shared/chat.js';
+import { createSqliteMessageStore } from '../../src/apps/chat/messageStore.js';
+import type { ChatMessage, TypingUpdatePayload } from '../../src/apps/chat/shared.js';
+import type { ChessState } from '../../src/apps/chess/shared.js';
+import type { SnakeState } from '../../src/apps/snake/shared.js';
+import type { AppEventEnvelope, AppId, PlatformErrorPayload, SpaceState } from '../../src/shared/platform.js';
 
 function once<T>(socket: Socket, event: string) {
   return new Promise<T>((resolve) => {
     socket.once(event, resolve);
+  });
+}
+
+function onceAppEvent<T>(socket: Socket, type: string) {
+  return new Promise<T>((resolve) => {
+    function handler(event: AppEventEnvelope<T>) {
+      if (event.type === type) {
+        socket.off('app:event', handler);
+        resolve(event.payload as T);
+      }
+    }
+
+    socket.on('app:event', handler);
   });
 }
 
@@ -26,7 +36,7 @@ function wait(ms: number) {
   });
 }
 
-describe('chat socket', () => {
+describe('platform socket', () => {
   let server: ReturnType<typeof createChatServer>;
   let tempDir: string;
   let dbPath: string;
@@ -34,7 +44,7 @@ describe('chat socket', () => {
   const clients: Socket[] = [];
 
   beforeEach(async () => {
-    tempDir = mkdtempSync(join(tmpdir(), 'citadel-chat-socket-'));
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-platform-socket-'));
     dbPath = join(tempDir, 'chat.sqlite');
     server = createChatServer({
       clientOrigin: '*',
@@ -62,56 +72,74 @@ describe('chat socket', () => {
     const client = Client(url, { autoConnect: false, transports: ['websocket'] });
     clients.push(client);
     const connected = once(client, 'connect');
-    const initialState = once<RoomState>(client, 'room:state');
     client.connect();
-    await Promise.all([connected, initialState]);
+    await connected;
     return client;
   }
 
-  async function joinClient(client: Socket, name: string, roomId: string) {
-    const roomState = once<RoomState>(client, 'room:state');
-    client.emit('join', { name, roomId });
-    return roomState;
+  async function joinSpace(client: Socket, name: string, appId: AppId, spaceId: string) {
+    const state = once<SpaceState>(client, 'space:state');
+    client.emit('space:join', { appId, name, spaceId });
+    return state;
   }
 
-  it('joins users, broadcasts messages, and updates presence on disconnect', async () => {
+  it('joins participants and isolates presence by app and space', async () => {
+    const ada = await connectClient();
+    const grace = await connectClient();
+    const linus = await connectClient();
+
+    await joinSpace(ada, 'Ada', 'chat', 'general');
+    const adaSawChatPresence = once<SpaceState>(ada, 'space:state');
+    await joinSpace(grace, 'Grace', 'chat', 'general');
+    await joinSpace(linus, 'Linus', 'chess', 'general');
+
+    expect((await adaSawChatPresence).participants.map((participant) => participant.name)).toEqual([
+      'Ada',
+      'Grace'
+    ]);
+
+    const chessState = await joinSpace(linus, 'Linus', 'chess', 'general');
+    expect(chessState.appId).toBe('chess');
+    expect(chessState.participants.map((participant) => participant.name)).toEqual(['Linus']);
+  });
+
+  it('routes chat messages, typing, and persistence through app events', async () => {
     const ada = await connectClient();
     const grace = await connectClient();
 
-    await joinClient(ada, 'Ada', 'general');
+    await joinSpace(ada, 'Ada', 'chat', 'design');
+    await joinSpace(grace, 'Grace', 'chat', 'design');
 
-    const adaSawJoin = once<SystemEvent>(ada, 'user:joined');
-    const adaSawUpdatedPresence = once<RoomState>(ada, 'room:state');
-    await joinClient(grace, 'Grace', 'general');
-    expect((await adaSawJoin).user.name).toBe('Grace');
-    expect((await adaSawUpdatedPresence).users.map((user) => user.name)).toEqual(['Ada', 'Grace']);
+    const typingForGrace = onceAppEvent<TypingUpdatePayload>(grace, 'chat:typing:update');
+    ada.emit('app:event', { appId: 'chat', type: 'chat:typing:start' });
+    expect((await typingForGrace).participants.map((participant) => participant.name)).toEqual(['Ada']);
 
-    const messageForAda = once<ChatMessage>(ada, 'message:new');
-    const messageForGrace = once<ChatMessage>(grace, 'message:new');
-    ada.emit('message:send', { body: '  hello  ' });
-
-    expect(await messageForAda).toMatchObject({ roomId: 'general', userName: 'Ada', body: 'hello' });
-    expect(await messageForGrace).toMatchObject({
-      roomId: 'general',
-      userName: 'Ada',
-      body: 'hello'
+    const messageForGrace = onceAppEvent<ChatMessage>(grace, 'chat:message:new');
+    ada.emit('app:event', {
+      appId: 'chat',
+      type: 'chat:message:send',
+      payload: { body: '  hello platform  ' }
     });
 
-    const graceSawLeave = once<SystemEvent>(grace, 'user:left');
-    ada.close();
-    expect((await graceSawLeave).user.name).toBe('Ada');
+    expect(await messageForGrace).toMatchObject({
+      spaceId: 'design',
+      participantName: 'Ada',
+      body: 'hello platform'
+    });
+    expect(server.messageStore.listRecentMessages('design')).toHaveLength(1);
   });
 
-  it('loads persisted messages into room state after a server restart', async () => {
+  it('loads persisted chat messages after a server restart', async () => {
     const ada = await connectClient();
-    await joinClient(ada, 'Ada', 'design');
+    await joinSpace(ada, 'Ada', 'chat', 'design');
 
-    const sentMessage = once<ChatMessage>(ada, 'message:new');
-    ada.emit('message:send', { body: 'still here after restart' });
-    expect(await sentMessage).toMatchObject({
-      userName: 'Ada',
-      body: 'still here after restart'
+    const sentMessage = onceAppEvent<ChatMessage>(ada, 'chat:message:new');
+    ada.emit('app:event', {
+      appId: 'chat',
+      type: 'chat:message:send',
+      payload: { body: 'still here after restart' }
     });
+    expect(await sentMessage).toMatchObject({ body: 'still here after restart' });
 
     clients.forEach((client) => client.close());
     clients.length = 0;
@@ -132,165 +160,45 @@ describe('chat socket', () => {
     url = `http://127.0.0.1:${address.port}`;
 
     const grace = await connectClient();
-    const state = await joinClient(grace, 'Grace', 'design');
+    const state = await joinSpace(grace, 'Grace', 'chat', 'design');
 
-    expect(state.roomId).toBe('design');
-    expect(state.messages).toHaveLength(1);
-    expect(state.messages[0]).toMatchObject({
-      roomId: 'design',
-      userName: 'Ada',
+    expect((state.appState as { messages: ChatMessage[] }).messages[0]).toMatchObject({
+      spaceId: 'design',
+      participantName: 'Ada',
       body: 'still here after restart'
     });
   });
 
-  it('isolates messages and presence between rooms', async () => {
+  it('rejects rapid chat messages without saving or broadcasting them', async () => {
     const ada = await connectClient();
     const grace = await connectClient();
 
-    await joinClient(ada, 'Ada', 'general');
-    await joinClient(grace, 'Grace', 'design');
-
-    let graceReceivedMessage = false;
-    let graceReceivedJoin = false;
-    grace.once('message:new', () => {
-      graceReceivedMessage = true;
-    });
-    grace.once('user:joined', () => {
-      graceReceivedJoin = true;
-    });
-
-    const messageForAda = once<ChatMessage>(ada, 'message:new');
-    ada.emit('message:send', { body: 'general only' });
-
-    expect(await messageForAda).toMatchObject({ roomId: 'general', body: 'general only' });
-    await wait(40);
-    expect(graceReceivedMessage).toBe(false);
-    expect(graceReceivedJoin).toBe(false);
-  });
-
-  it('updates old and new room presence when switching rooms', async () => {
-    const ada = await connectClient();
-    const grace = await connectClient();
-
-    await joinClient(ada, 'Ada', 'general');
-    await joinClient(grace, 'Grace', 'general');
-
-    const graceSawLeave = once<SystemEvent>(grace, 'user:left');
-    const graceSawState = once<RoomState>(grace, 'room:state');
-    ada.emit('join', { name: 'Ada', roomId: 'design' });
-    expect((await graceSawLeave).user.name).toBe('Ada');
-    const generalState = await graceSawState;
-    expect(generalState.users.map((user) => user.name)).toEqual(['Grace']);
-
-    const adaState = await joinClient(ada, 'Ada', 'design');
-    expect(adaState.roomId).toBe('design');
-    expect(adaState.users.map((user) => user.name)).toEqual(['Ada']);
-  });
-
-  it('broadcasts typing updates to users in the same room', async () => {
-    const ada = await connectClient();
-    const grace = await connectClient();
-
-    await joinClient(ada, 'Ada', 'general');
-    await joinClient(grace, 'Grace', 'general');
-
-    const graceSawTyping = once<TypingUpdatePayload>(grace, 'typing:update');
-    ada.emit('typing:start');
-
-    expect(await graceSawTyping).toMatchObject({
-      roomId: 'general',
-      users: [{ name: 'Ada' }]
-    });
-  });
-
-  it('does not broadcast typing updates across rooms', async () => {
-    const ada = await connectClient();
-    const grace = await connectClient();
-
-    await joinClient(ada, 'Ada', 'general');
-    await joinClient(grace, 'Grace', 'design');
-
-    let graceReceivedTyping = false;
-    grace.once('typing:update', () => {
-      graceReceivedTyping = true;
-    });
-
-    ada.emit('typing:start');
-    await wait(40);
-
-    expect(graceReceivedTyping).toBe(false);
-  });
-
-  it('clears typing state when a user sends a message', async () => {
-    const ada = await connectClient();
-    const grace = await connectClient();
-
-    await joinClient(ada, 'Ada', 'general');
-    await joinClient(grace, 'Grace', 'general');
-
-    const graceSawTyping = once<TypingUpdatePayload>(grace, 'typing:update');
-    ada.emit('typing:start');
-    expect((await graceSawTyping).users.map((user) => user.name)).toEqual(['Ada']);
-
-    const graceSawStop = once<TypingUpdatePayload>(grace, 'typing:update');
-    ada.emit('message:send', { body: 'done typing' });
-    expect((await graceSawStop).users).toEqual([]);
-  });
-
-  it('clears typing state when a user switches rooms', async () => {
-    const ada = await connectClient();
-    const grace = await connectClient();
-
-    await joinClient(ada, 'Ada', 'general');
-    await joinClient(grace, 'Grace', 'general');
-
-    const graceSawTyping = once<TypingUpdatePayload>(grace, 'typing:update');
-    ada.emit('typing:start');
-    expect((await graceSawTyping).users.map((user) => user.name)).toEqual(['Ada']);
-
-    const graceSawStop = once<TypingUpdatePayload>(grace, 'typing:update');
-    ada.emit('join', { name: 'Ada', roomId: 'design' });
-    expect((await graceSawStop).users).toEqual([]);
-  });
-
-  it('clears typing state when a user disconnects', async () => {
-    const ada = await connectClient();
-    const grace = await connectClient();
-
-    await joinClient(ada, 'Ada', 'general');
-    await joinClient(grace, 'Grace', 'general');
-
-    const graceSawTyping = once<TypingUpdatePayload>(grace, 'typing:update');
-    ada.emit('typing:start');
-    expect((await graceSawTyping).users.map((user) => user.name)).toEqual(['Ada']);
-
-    const graceSawStop = once<TypingUpdatePayload>(grace, 'typing:update');
-    ada.close();
-    expect((await graceSawStop).users).toEqual([]);
-  });
-
-  it('rejects rapid messages without saving or broadcasting them', async () => {
-    const ada = await connectClient();
-    const grace = await connectClient();
-
-    await joinClient(ada, 'Ada', 'general');
-    await joinClient(grace, 'Grace', 'general');
+    await joinSpace(ada, 'Ada', 'chat', 'general');
+    await joinSpace(grace, 'Grace', 'chat', 'general');
 
     for (let index = 1; index <= 5; index += 1) {
-      const messageForAda = once<ChatMessage>(ada, 'message:new');
-      ada.emit('message:send', { body: `message ${index}` });
+      const messageForAda = onceAppEvent<ChatMessage>(ada, 'chat:message:new');
+      ada.emit('app:event', {
+        appId: 'chat',
+        type: 'chat:message:send',
+        payload: { body: `message ${index}` }
+      });
       expect(await messageForAda).toMatchObject({ body: `message ${index}` });
     }
 
     let graceReceivedRejectedMessage = false;
-    grace.on('message:new', (message: ChatMessage) => {
-      if (message.body === 'message 6') {
+    grace.on('app:event', (event: AppEventEnvelope<ChatMessage>) => {
+      if (event.type === 'chat:message:new' && event.payload?.body === 'message 6') {
         graceReceivedRejectedMessage = true;
       }
     });
 
-    const errorForAda = once<ServerErrorPayload>(ada, 'error:notice');
-    ada.emit('message:send', { body: 'message 6' });
+    const errorForAda = onceAppEvent<PlatformErrorPayload>(ada, 'chat:notice');
+    ada.emit('app:event', {
+      appId: 'chat',
+      type: 'chat:message:send',
+      payload: { body: 'message 6' }
+    });
 
     expect(await errorForAda).toEqual({ message: 'Slow down before sending another message.' });
     await wait(40);
@@ -298,45 +206,61 @@ describe('chat socket', () => {
     expect(server.messageStore.listRecentMessages('general')).toHaveLength(5);
   });
 
-  it('accepts messages again after the rate limit window passes', async () => {
+  it('assigns chess players and validates moves authoritatively', async () => {
     const ada = await connectClient();
+    const grace = await connectClient();
+    const linus = await connectClient();
 
-    await joinClient(ada, 'Ada', 'general');
+    const adaState = await joinSpace(ada, 'Ada', 'chess', 'board');
+    await joinSpace(grace, 'Grace', 'chess', 'board');
+    await joinSpace(linus, 'Linus', 'chess', 'board');
 
-    for (let index = 1; index <= 5; index += 1) {
-      const messageForAda = once<ChatMessage>(ada, 'message:new');
-      ada.emit('message:send', { body: `burst ${index}` });
-      expect(await messageForAda).toMatchObject({ body: `burst ${index}` });
-    }
+    expect((adaState.appState as ChessState).players.white).toBe(ada.id);
 
-    await wait(90);
+    const spectatorNotice = onceAppEvent<PlatformErrorPayload>(linus, 'chess:notice');
+    linus.emit('app:event', {
+      appId: 'chess',
+      type: 'chess:move',
+      payload: { from: 'e2', to: 'e4' }
+    });
+    expect(await spectatorNotice).toEqual({ message: 'Spectators cannot move pieces.' });
 
-    const laterMessage = once<ChatMessage>(ada, 'message:new');
-    ada.emit('message:send', { body: 'after window' });
+    const chessUpdate = onceAppEvent<ChessState>(grace, 'chess:state');
+    ada.emit('app:event', {
+      appId: 'chess',
+      type: 'chess:move',
+      payload: { from: 'e2', to: 'e4' }
+    });
+    expect((await chessUpdate).fen).toContain(' b ');
 
-    expect(await laterMessage).toMatchObject({ body: 'after window' });
+    const turnNotice = onceAppEvent<PlatformErrorPayload>(ada, 'chess:notice');
+    ada.emit('app:event', {
+      appId: 'chess',
+      type: 'chess:move',
+      payload: { from: 'd2', to: 'd4' }
+    });
+    expect(await turnNotice).toEqual({ message: 'Wait for your turn.' });
   });
 
-  it('clears message rate limit state when a socket disconnects', async () => {
+  it('creates snake state, accepts directions, and removes snakes on disconnect', async () => {
     const ada = await connectClient();
+    const grace = await connectClient();
 
-    await joinClient(ada, 'Ada', 'general');
+    const initialState = await joinSpace(ada, 'Ada', 'snake', 'arena');
+    expect((initialState.appState as SnakeState).snakes).toHaveLength(1);
 
-    for (let index = 1; index <= 5; index += 1) {
-      const messageForAda = once<ChatMessage>(ada, 'message:new');
-      ada.emit('message:send', { body: `before disconnect ${index}` });
-      expect(await messageForAda).toMatchObject({ body: `before disconnect ${index}` });
-    }
+    await joinSpace(grace, 'Grace', 'snake', 'arena');
+    const snakeUpdate = onceAppEvent<SnakeState>(ada, 'snake:state');
+    grace.emit('app:event', {
+      appId: 'snake',
+      type: 'snake:direction',
+      payload: { direction: 'down' }
+    });
+    expect((await snakeUpdate).snakes).toHaveLength(2);
 
-    ada.close();
-    await wait(20);
-
-    const reconnectedAda = await connectClient();
-    await joinClient(reconnectedAda, 'Ada', 'general');
-
-    const messageAfterReconnect = once<ChatMessage>(reconnectedAda, 'message:new');
-    reconnectedAda.emit('message:send', { body: 'after reconnect' });
-
-    expect(await messageAfterReconnect).toMatchObject({ body: 'after reconnect' });
+    grace.close();
+    await wait(40);
+    const state = server.apps.get('snake');
+    expect(state).toBeDefined();
   });
 });

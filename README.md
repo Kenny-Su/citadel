@@ -1,6 +1,6 @@
-# Citadel Chat Room
+# Citadel Platform
 
-A small guest chat app with named rooms, SQLite-backed message history, returning guest names, and typing indicators.
+A small real-time communication platform with bundled chat, chess, and snake apps. The platform owns identity, spaces, presence, Socket.IO routing, and shared errors; each app owns its own state, events, and UI.
 
 ## Local Development
 
@@ -19,7 +19,7 @@ npm run build
 npm run test:production
 ```
 
-`npm run test:production` builds the client and checks that the production server serves both `/health` and room routes such as `/rooms/general`.
+`npm run test:production` builds the client and checks that the production server serves `/health`, app routes such as `/apps/chat/spaces/general`, and legacy chat links such as `/rooms/general`.
 
 ## Production Run
 
@@ -33,7 +33,8 @@ The server reads:
 - `PORT`: HTTP port, default `3001`.
 - `HOST`: bind host, default `0.0.0.0`.
 - `CLIENT_ORIGIN`: allowed Socket.IO browser origin, default `http://localhost:5173`.
-- `CHAT_DB_PATH`: SQLite database path, default `data/chat.sqlite`.
+- `CITADEL_DB_PATH`: SQLite database path for chat history, default `data/citadel.sqlite`.
+- `CHAT_DB_PATH`: legacy override for the chat SQLite path. If both are set, `CHAT_DB_PATH` wins.
 
 ## Render Deployment
 
@@ -49,8 +50,8 @@ Set environment variables:
 
 ```text
 NODE_VERSION=24.14.1
-CHAT_DB_PATH=/var/data/chat.sqlite
+CITADEL_DB_PATH=/var/data/citadel.sqlite
 CLIENT_ORIGIN=https://<service>.onrender.com
 ```
 
-Keep the service at one instance while using SQLite on a persistent disk. Move to Postgres before horizontal scaling.
+Keep the service at one instance while using SQLite for chat history. Move to Postgres before horizontal scaling.

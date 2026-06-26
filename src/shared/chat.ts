@@ -1,69 +1,18 @@
-export const DISPLAY_NAME_MAX_LENGTH = 24;
-export const MESSAGE_MAX_LENGTH = 500;
-export const MESSAGE_HISTORY_LIMIT = 100;
-export const DEFAULT_ROOM_ID = 'general';
-export const ROOM_ID_MAX_LENGTH = 32;
-export const ROOM_ID_PATTERN = /^[a-z0-9-]+$/;
-
-export type User = {
-  id: string;
-  name: string;
-};
-
-export type ChatMessage = {
-  id: string;
-  roomId: string;
-  userId: string;
-  userName: string;
-  body: string;
-  createdAt: string;
-};
-
-export type SystemEvent = {
-  id: string;
-  type: 'user:joined' | 'user:left';
-  user: User;
-  createdAt: string;
-};
-
-export type TimelineItem =
-  | ({ kind: 'message' } & ChatMessage)
-  | ({ kind: 'system' } & SystemEvent);
-
-export type RoomState = {
-  roomId: string;
-  users: User[];
-  messages: ChatMessage[];
-};
-
-export type JoinPayload = {
-  name: string;
-  roomId?: string;
-};
-
-export type SendMessagePayload = {
-  body: string;
-};
-
-export type ServerErrorPayload = {
-  message: string;
-};
-
-export type TypingUpdatePayload = {
-  roomId: string;
-  users: User[];
-};
-
-export function normalizeRoomId(input: unknown): string {
-  if (typeof input !== 'string') {
-    return DEFAULT_ROOM_ID;
-  }
-
-  const value = input.trim().toLowerCase();
-
-  if (!value || value.length > ROOM_ID_MAX_LENGTH || !ROOM_ID_PATTERN.test(value)) {
-    return DEFAULT_ROOM_ID;
-  }
-
-  return value;
-}
+export {
+  DISPLAY_NAME_MAX_LENGTH,
+  DEFAULT_SPACE_ID as DEFAULT_ROOM_ID,
+  SPACE_ID_MAX_LENGTH as ROOM_ID_MAX_LENGTH,
+  SPACE_ID_PATTERN as ROOM_ID_PATTERN,
+  normalizeSpaceId as normalizeRoomId,
+  type Participant as User,
+  type PlatformErrorPayload as ServerErrorPayload
+} from './platform.js';
+export {
+  MESSAGE_MAX_LENGTH,
+  MESSAGE_HISTORY_LIMIT,
+  type ChatMessage,
+  type ChatSystemEvent as SystemEvent,
+  type ChatTimelineItem as TimelineItem,
+  type SendMessagePayload,
+  type TypingUpdatePayload
+} from '../apps/chat/shared.js';

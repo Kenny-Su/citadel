@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createChatServer } from '../../src/server/chatServer.js';
-import { createSqliteMessageStore } from '../../src/server/messageStore.js';
+import { createSqliteMessageStore } from '../../src/apps/chat/messageStore.js';
 
 const staticDir = resolve(process.cwd(), 'dist');
 const hasBuiltClient = existsSync(join(staticDir, 'index.html'));
@@ -15,7 +15,7 @@ describe.skipIf(!hasBuiltClient)('production server', () => {
   let url: string;
 
   beforeEach(async () => {
-    tempDir = mkdtempSync(join(tmpdir(), 'citadel-chat-production-'));
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-platform-production-'));
     server = createChatServer({
       clientOrigin: '*',
       messageStore: createSqliteMessageStore(join(tempDir, 'chat.sqlite')),
@@ -35,12 +35,19 @@ describe.skipIf(!hasBuiltClient)('production server', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('serves health and room routes from one server', async () => {
+  it('serves health, app routes, and legacy room routes from one server', async () => {
     const health = await fetch(`${url}/health`);
     await expect(health.json()).resolves.toMatchObject({ ok: true });
 
-    const room = await fetch(`${url}/rooms/general`);
-    expect(room.headers.get('content-type')).toContain('text/html');
-    expect(await room.text()).toContain('<div id="root"></div>');
+    for (const path of [
+      '/apps/chat/spaces/general',
+      '/apps/chess/spaces/general',
+      '/apps/snake/spaces/general',
+      '/rooms/general'
+    ]) {
+      const route = await fetch(`${url}${path}`);
+      expect(route.headers.get('content-type')).toContain('text/html');
+      expect(await route.text()).toContain('<div id="root"></div>');
+    }
   });
 });

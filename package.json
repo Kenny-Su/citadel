@@ -1,5 +1,5 @@
 {
-  "name": "citadel-chat-room",
+  "name": "citadel-platform",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.2",
+    "chess.js": "^1.4.0",
     "concurrently": "^10.0.3",
     "express": "^5.1.0",
     "nanoid": "^5.1.5",

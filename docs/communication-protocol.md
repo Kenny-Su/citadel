@@ -1,8 +1,6 @@
-# Communication Protocol
+# Platform Communication Protocol
 
-Citadel Chat uses Socket.IO so the browser and server can keep a live connection open.
-
-In simple terms: the browser and server agree on a small set of event names. The browser sends events like "join" or "send message", and the server sends events like "new message" or "user left".
+Citadel uses Socket.IO so the browser and server can keep a live connection open. The platform protocol is app-neutral: clients join an app space, receive presence and app state, then exchange app events through a shared envelope.
 
 ## Transport
 
@@ -14,136 +12,75 @@ In simple terms: the browser and server agree on a small set of event names. The
 
 In development, Vite forwards Socket.IO traffic from the frontend to the backend.
 
-## Rooms
+## Platform Concepts
 
-Each chat room has a `roomId`.
+- `appId`: one of `chat`, `chess`, or `snake`
+- `spaceId`: lowercase letters, numbers, and hyphens; invalid values normalize to `general`
+- `participant`: `{ id: string; name: string }`
 
-Examples:
+Routes use `/apps/:appId/spaces/:spaceId`. Legacy `/rooms/:spaceId` links are normalized by the client into `/apps/chat/spaces/:spaceId`.
 
-```text
-general
-design
-```
+## Platform Events
 
-If the room ID is missing or invalid, the app uses `general`.
+### Client To Server
 
-Rooms keep users, messages, and typing status separate.
-
-## Client To Server Events
-
-### `join`
-
-Sent when a user joins or switches rooms.
+`space:join`
 
 ```ts
 {
+  appId: "chat" | "chess" | "snake";
+  spaceId?: string;
   name: string;
-  roomId?: string;
 }
 ```
 
-### `message:send`
-
-Sent when a user sends a message.
+`app:event`
 
 ```ts
 {
-  body: string;
+  appId: "chat" | "chess" | "snake";
+  type: string;
+  payload?: unknown;
 }
 ```
 
-### `typing:start`
+### Server To Client
 
-Sent when a user starts typing.
-
-```text
-no payload
-```
-
-### `typing:stop`
-
-Sent when a user stops typing.
-
-```text
-no payload
-```
-
-## Server To Client Events
-
-### `room:state`
-
-Sent with the current room users and recent messages. This is the authoritative
-presence payload for the online counter.
-
-The server sends it when a socket connects, after a user joins or changes rooms,
-and after a user disconnects. After a successful join, every socket in that room
-receives the same updated room state.
+`space:state`
 
 ```ts
 {
-  roomId: string;
-  users: User[];
-  messages: ChatMessage[];
+  appId: "chat" | "chess" | "snake";
+  spaceId: string;
+  participants: Participant[];
+  appState: unknown;
 }
 ```
 
-### `message:new`
-
-Sent when a new message is saved.
+`participant:joined` and `participant:left`
 
 ```ts
 {
   id: string;
-  roomId: string;
-  userId: string;
-  userName: string;
-  body: string;
+  type: "participant:joined" | "participant:left";
+  appId: "chat" | "chess" | "snake";
+  spaceId: string;
+  participant: Participant;
   createdAt: string;
 }
 ```
 
-### `user:joined`
-
-Sent when another user joins the room. This event is for the chat timeline; use
-`room:state` for the full online user list.
+`app:event`
 
 ```ts
 {
-  id: string;
-  type: "user:joined";
-  user: User;
-  createdAt: string;
+  appId: "chat" | "chess" | "snake";
+  type: string;
+  payload?: unknown;
 }
 ```
 
-### `user:left`
-
-Sent when a user leaves or disconnects. This event is for the chat timeline; use
-`room:state` for the full online user list.
-
-```ts
-{
-  id: string;
-  type: "user:left";
-  user: User;
-  createdAt: string;
-}
-```
-
-### `typing:update`
-
-Sent when the list of typing users changes.
-
-```ts
-{
-  roomId: string;
-  users: User[];
-}
-```
-
-### `error:notice`
-
-Sent when the client sends invalid data.
+`error:notice`
 
 ```ts
 {
@@ -151,23 +88,33 @@ Sent when the client sends invalid data.
 }
 ```
 
-## Basic Flow
+## Bundled App Events
 
-1. The browser opens a Socket.IO connection.
-2. The server sends `room:state`.
-3. The browser sends `join`.
-4. The server validates the user and room.
-5. The server sends the updated `room:state` to every socket in the room.
-6. The browser sends messages with `message:send`.
-7. The server saves messages and broadcasts `message:new`.
-8. Typing status is handled with `typing:start`, `typing:stop`, and `typing:update`.
-9. When a user disconnects, the server broadcasts `user:left` and then the updated `room:state`.
+Chat:
+
+- client `chat:message:send` with `{ body: string }`
+- client `chat:typing:start`
+- client `chat:typing:stop`
+- server `chat:message:new`
+- server `chat:typing:update`
+- server `chat:notice`
+
+Chess:
+
+- client `chess:move` with `{ from: string; to: string; promotion?: string }`
+- server `chess:state`
+- server `chess:notice`
+
+Snake:
+
+- client `snake:direction` with `{ direction: "up" | "down" | "left" | "right" }`
+- server `snake:state`
 
 ## Validation
 
 - Display names cannot be empty.
 - Display names must be 24 characters or fewer.
-- Messages cannot be empty.
-- Messages must be 500 characters or fewer.
-- Room IDs can use lowercase letters, numbers, and hyphens.
-- Room IDs must be 32 characters or fewer.
+- Space IDs can use lowercase letters, numbers, and hyphens.
+- Space IDs must be 32 characters or fewer.
+- Chat messages cannot be empty.
+- Chat messages must be 500 characters or fewer.

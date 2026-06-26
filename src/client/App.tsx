@@ -1,77 +1,59 @@
 import React from 'react';
 import { io } from 'socket.io-client';
 import {
-  DEFAULT_ROOM_ID,
+  DEFAULT_SPACE_ID,
   DISPLAY_NAME_MAX_LENGTH,
-  MESSAGE_MAX_LENGTH,
-  normalizeRoomId,
-  type ChatMessage,
-  type RoomState,
-  type ServerErrorPayload,
-  type SystemEvent,
-  type TimelineItem,
-  type TypingUpdatePayload,
-  type User
-} from '../shared/chat';
+  type AppEventEnvelope,
+  type AppId,
+  type Participant,
+  type PlatformErrorPayload,
+  type SpaceState,
+  isAppId,
+  normalizeSpaceId
+} from '../shared/platform';
+import { appById, clientApps, isKnownAppEvent } from './appRegistry';
 
 const socket = io({
   autoConnect: false
 });
 
 const DISPLAY_NAME_STORAGE_KEY = 'citadel.displayName';
-const TYPING_IDLE_TIMEOUT_MS = 1200;
 
-function getRoomIdFromPath() {
-  const [, roomsSegment, roomSegment] = window.location.pathname.split('/');
+type RouteState = {
+  appId: AppId;
+  spaceId: string;
+};
 
-  if (roomsSegment !== 'rooms') {
-    return DEFAULT_ROOM_ID;
+function parseRoute(): RouteState {
+  const [, first, second, third, fourth] = window.location.pathname.split('/');
+
+  if (first === 'rooms') {
+    return { appId: 'chat', spaceId: normalizeSpaceId(second) };
   }
 
-  return normalizeRoomId(roomSegment);
+  if (first === 'apps' && third === 'spaces' && isAppId(second)) {
+    return { appId: second, spaceId: normalizeSpaceId(fourth) };
+  }
+
+  return { appId: 'chat', spaceId: DEFAULT_SPACE_ID };
 }
 
-function getRoomPath(roomId: string) {
-  return `/rooms/${roomId}`;
+function getSpacePath(appId: AppId, spaceId: string) {
+  return `/apps/${appId}/spaces/${spaceId}`;
 }
 
-function getRoomUrl(roomId: string) {
-  return `${window.location.origin}${getRoomPath(roomId)}`;
+function getSpaceUrl(appId: AppId, spaceId: string) {
+  return `${window.location.origin}${getSpacePath(appId, spaceId)}`;
 }
 
-function syncRoomPath(roomId: string, mode: 'push' | 'replace' = 'push') {
-  const path = getRoomPath(roomId);
+function syncSpacePath(route: RouteState, mode: 'push' | 'replace' = 'push') {
+  const path = getSpacePath(route.appId, route.spaceId);
 
   if (window.location.pathname === path) {
     return;
   }
 
   window.history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', path);
-}
-
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(value));
-}
-
-function formatTypingText(users: User[]) {
-  if (users.length === 0) {
-    return '';
-  }
-
-  if (users.length === 1) {
-    return `${users[0].name} is typing...`;
-  }
-
-  if (users.length === 2) {
-    return `${users[0].name} and ${users[1].name} are typing...`;
-  }
-
-  const otherCount = users.length - 2;
-  const otherLabel = otherCount === 1 ? 'other' : 'others';
-  return `${users[0].name}, ${users[1].name}, and ${otherCount} ${otherLabel} are typing...`;
 }
 
 function normalizeDisplayName(input: unknown) {
@@ -145,26 +127,26 @@ async function copyText(value: string) {
 
 export function App() {
   const initialDisplayName = React.useMemo(() => loadStoredDisplayName(), []);
-  const [roomId, setRoomId] = React.useState(getRoomIdFromPath);
-  const [roomDraft, setRoomDraft] = React.useState(getRoomIdFromPath);
+  const [route, setRoute] = React.useState(parseRoute);
+  const [spaceDraft, setSpaceDraft] = React.useState(route.spaceId);
   const [displayName, setDisplayName] = React.useState(initialDisplayName);
   const [joinedName, setJoinedName] = React.useState(initialDisplayName);
-  const [messageDraft, setMessageDraft] = React.useState('');
   const [connected, setConnected] = React.useState(false);
-  const [users, setUsers] = React.useState<User[]>([]);
-  const [typingUsers, setTypingUsers] = React.useState<User[]>([]);
-  const [timeline, setTimeline] = React.useState<TimelineItem[]>([]);
+  const [participants, setParticipants] = React.useState<Participant[]>([]);
+  const [appState, setAppState] = React.useState<unknown>(null);
   const [notice, setNotice] = React.useState('');
-  const listRef = React.useRef<HTMLDivElement>(null);
-  const stickToBottomRef = React.useRef(true);
-  const typingTimerRef = React.useRef<number | null>(null);
-  const isTypingRef = React.useRef(false);
+
+  const currentApp = appById.get(route.appId) ?? clientApps[0];
+  const currentParticipant = participants.find((participant) => participant.name === joinedName) ?? {
+    id: socket.id ?? '',
+    name: joinedName
+  };
 
   React.useEffect(() => {
-    syncRoomPath(roomId, 'replace');
+    syncSpacePath(route, 'replace');
 
     function handlePopState() {
-      setRoomId(getRoomIdFromPath());
+      setRoute(parseRoute());
     }
 
     window.addEventListener('popstate', handlePopState);
@@ -175,12 +157,10 @@ export function App() {
   }, []);
 
   React.useEffect(() => {
-    setRoomDraft(roomId);
-    setUsers([]);
-    setTypingUsers([]);
-    setTimeline([]);
-    stickToBottomRef.current = true;
-  }, [roomId]);
+    setSpaceDraft(route.spaceId);
+    setParticipants([]);
+    setAppState(null);
+  }, [route.appId, route.spaceId]);
 
   React.useEffect(() => {
     function handleConnect() {
@@ -193,65 +173,41 @@ export function App() {
       setNotice('Connection lost. Reconnecting...');
     }
 
-    function handleRoomState(state: RoomState) {
-      if (state.roomId !== roomId) {
+    function handleSpaceState(state: SpaceState) {
+      if (state.appId !== route.appId || state.spaceId !== route.spaceId) {
         return;
       }
 
-      setUsers(state.users);
-      setTimeline((current) => {
-        const systemItems = current.filter((item) => item.kind === 'system');
-        return [
-          ...state.messages.map((message) => ({ kind: 'message', ...message }) as TimelineItem),
-          ...systemItems
-        ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-      });
+      setParticipants(state.participants);
+      setAppState(state.appState);
     }
 
-    function handleNewMessage(message: ChatMessage) {
-      if (message.roomId !== roomId) {
-        return;
-      }
-
-      setTimeline((current) => [...current, { kind: 'message', ...message }]);
-    }
-
-    function handleSystemEvent(event: SystemEvent) {
-      setTimeline((current) => [...current, { kind: 'system', ...event }]);
-    }
-
-    function handleError(payload: ServerErrorPayload) {
+    function handleError(payload: PlatformErrorPayload) {
       setNotice(payload.message);
     }
 
-    function handleTypingUpdate(payload: TypingUpdatePayload) {
-      if (payload.roomId !== roomId) {
+    function handleAppEvent(event: AppEventEnvelope) {
+      if (!isKnownAppEvent(event) || event.appId !== route.appId) {
         return;
       }
 
-      setTypingUsers(payload.users.filter((user) => user.name !== joinedName));
+      window.dispatchEvent(new CustomEvent('citadel:app-event', { detail: event }));
     }
 
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
-    socket.on('room:state', handleRoomState);
-    socket.on('message:new', handleNewMessage);
-    socket.on('user:joined', handleSystemEvent);
-    socket.on('user:left', handleSystemEvent);
-    socket.on('typing:update', handleTypingUpdate);
+    socket.on('space:state', handleSpaceState);
     socket.on('error:notice', handleError);
+    socket.on('app:event', handleAppEvent);
 
     return () => {
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
-      socket.off('room:state', handleRoomState);
-      socket.off('message:new', handleNewMessage);
-      socket.off('user:joined', handleSystemEvent);
-      socket.off('user:left', handleSystemEvent);
-      socket.off('typing:update', handleTypingUpdate);
+      socket.off('space:state', handleSpaceState);
       socket.off('error:notice', handleError);
+      socket.off('app:event', handleAppEvent);
     };
-  }, [joinedName, roomId]);
+  }, [route.appId, route.spaceId]);
 
   React.useEffect(() => {
     if (!joinedName) {
@@ -263,31 +219,14 @@ export function App() {
       return;
     }
 
-    socket.emit('join', { name: joinedName, roomId });
-  }, [connected, joinedName, roomId]);
-
-  React.useEffect(() => {
-    return () => {
-      stopTyping(true);
-    };
-  }, []);
-
-  React.useEffect(() => {
-    if (!stickToBottomRef.current) {
-      return;
-    }
-
-    if (typeof listRef.current?.scrollTo !== 'function') {
-      return;
-    }
-
-    listRef.current.scrollTo({
-      top: listRef.current.scrollHeight,
-      behavior: 'smooth'
+    socket.emit('space:join', {
+      appId: route.appId,
+      name: joinedName,
+      spaceId: route.spaceId
     });
-  }, [timeline]);
+  }, [connected, joinedName, route.appId, route.spaceId]);
 
-  function joinRoom(event: React.FormEvent<HTMLFormElement>) {
+  function joinSpace(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = normalizeDisplayName(displayName);
 
@@ -306,138 +245,94 @@ export function App() {
     const previousName = joinedName;
 
     clearStoredDisplayName();
-    stopTyping(true);
     setJoinedName('');
     setDisplayName(previousName);
-    setUsers([]);
-    setTimeline([]);
+    setParticipants([]);
+    setAppState(null);
     setConnected(false);
     socket.disconnect();
   }
 
-  function switchRoom(event: React.FormEvent<HTMLFormElement>) {
+  function switchSpace(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextRoomId = normalizeRoomId(roomDraft);
+    const nextRoute = {
+      appId: route.appId,
+      spaceId: normalizeSpaceId(spaceDraft)
+    };
 
-    stopTyping(true);
     setNotice('');
-    setRoomId(nextRoomId);
-    syncRoomPath(nextRoomId);
+    setRoute(nextRoute);
+    syncSpacePath(nextRoute);
   }
 
-  async function copyRoomLink() {
+  function switchApp(appId: AppId) {
+    const nextRoute = {
+      appId,
+      spaceId: route.spaceId || appById.get(appId)?.defaultSpaceId || DEFAULT_SPACE_ID
+    };
+
+    setNotice('');
+    setParticipants([]);
+    setAppState(null);
+    setRoute(nextRoute);
+    syncSpacePath(nextRoute);
+  }
+
+  async function copySpaceLink() {
     try {
-      await copyText(getRoomUrl(roomId));
-      setNotice('Room link copied.');
+      await copyText(getSpaceUrl(route.appId, route.spaceId));
+      setNotice('Space link copied.');
     } catch {
-      setNotice('Could not copy the room link.');
+      setNotice('Could not copy the space link.');
     }
   }
 
-  function stopTyping(force = false) {
-    if (typingTimerRef.current) {
-      window.clearTimeout(typingTimerRef.current);
-      typingTimerRef.current = null;
-    }
-
-    if (!isTypingRef.current && !force) {
-      return;
-    }
-
-    isTypingRef.current = false;
-    socket.emit('typing:stop');
+  function sendAppEvent(type: string, payload?: unknown) {
+    socket.emit('app:event', {
+      appId: route.appId,
+      type,
+      payload
+    });
   }
 
-  function scheduleTypingStop() {
-    if (typingTimerRef.current) {
-      window.clearTimeout(typingTimerRef.current);
-    }
-
-    typingTimerRef.current = window.setTimeout(() => {
-      stopTyping();
-    }, TYPING_IDLE_TIMEOUT_MS);
-  }
-
-  function handleMessageDraftChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    const nextValue = event.target.value;
-    setMessageDraft(nextValue);
-
-    if (!joinedName || !socket.connected || !nextValue.trim()) {
-      stopTyping();
-      return;
-    }
-
-    if (!isTypingRef.current) {
-      isTypingRef.current = true;
-      socket.emit('typing:start');
-    }
-
-    scheduleTypingStop();
-  }
-
-  function handleMessageDraftKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key !== 'Enter' || event.shiftKey) {
-      return;
-    }
-
-    event.preventDefault();
-    event.currentTarget.form?.requestSubmit();
-  }
-
-  function sendMessage(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const body = messageDraft.trim();
-
-    if (!body) {
-      setNotice('Type a message before sending.');
-      return;
-    }
-
-    stopTyping();
-    socket.emit('message:send', { body });
-    setMessageDraft('');
-    setNotice('');
-  }
-
-  function handleScroll() {
-    const element = listRef.current;
-
-    if (!element) {
-      return;
-    }
-
-    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
-    stickToBottomRef.current = distanceFromBottom < 80;
-  }
-
-  const canSend = connected && joinedName && messageDraft.trim().length > 0;
-  const messageCount = messageDraft.trim().length;
-  const typingText = formatTypingText(typingUsers);
+  const AppView = currentApp.View as React.ComponentType<any>;
 
   return (
     <main className="app-shell">
-      <section className="chat-panel" aria-label="Chat room">
-        <header className="chat-header">
+      <section className="workspace-panel" aria-label={`${currentApp.label} space`}>
+        <header className="workspace-header">
           <div>
-            <p className="eyebrow">Room</p>
-            <h1>Citadel Chat</h1>
-            <p className="room-label">#{roomId}</p>
+            <p className="eyebrow">Citadel Platform</p>
+            <h1>{currentApp.label}</h1>
+            <p className="space-label">#{route.spaceId}</p>
           </div>
           <div className="header-actions">
-            <form className="room-switcher" onSubmit={switchRoom}>
-              <label className="sr-only" htmlFor="roomName">
-                Room name
+            <nav className="app-tabs" aria-label="Apps">
+              {clientApps.map((app) => (
+                <button
+                  className={app.appId === route.appId ? 'active' : ''}
+                  key={app.appId}
+                  type="button"
+                  onClick={() => switchApp(app.appId)}
+                >
+                  {app.label}
+                </button>
+              ))}
+            </nav>
+            <form className="space-switcher" onSubmit={switchSpace}>
+              <label className="sr-only" htmlFor="spaceName">
+                Space name
               </label>
               <input
-                id="roomName"
-                value={roomDraft}
+                id="spaceName"
+                value={spaceDraft}
                 maxLength={32}
-                onChange={(event) => setRoomDraft(event.target.value)}
+                onChange={(event) => setSpaceDraft(event.target.value)}
                 placeholder="general"
               />
               <button type="submit">Go</button>
             </form>
-            <button className="copy-link-button" type="button" onClick={copyRoomLink}>
+            <button className="copy-link-button" type="button" onClick={copySpaceLink}>
               Copy link
             </button>
             <div className={connected ? 'status online' : 'status'}>
@@ -448,7 +343,7 @@ export function App() {
         </header>
 
         {!joinedName ? (
-          <form className="join-card" onSubmit={joinRoom}>
+          <form className="join-card" onSubmit={joinSpace}>
             <label htmlFor="displayName">Choose a display name</label>
             <div className="join-row">
               <input
@@ -466,74 +361,43 @@ export function App() {
           <>
             <div className="identity-bar">
               <span>
-                Chatting as <strong>{joinedName}</strong>
+                Participating as <strong>{joinedName}</strong>
               </span>
               <button type="button" onClick={changeIdentity}>
                 Change
               </button>
             </div>
-            <div className="message-list" ref={listRef} onScroll={handleScroll}>
-              {timeline.length === 0 ? (
-                <div className="empty-state">No messages yet. Start the room.</div>
-              ) : (
-                timeline.map((item) =>
-                  item.kind === 'system' ? (
-                    <div className="system-line" key={item.id}>
-                      {item.user.name} {item.type === 'user:joined' ? 'joined' : 'left'} at{' '}
-                      {formatTime(item.createdAt)}
-                    </div>
-                  ) : (
-                    <article
-                      className={item.userName === joinedName ? 'message mine' : 'message'}
-                      key={item.id}
-                    >
-                      <div className="message-meta">
-                        <strong>{item.userName}</strong>
-                        <time>{formatTime(item.createdAt)}</time>
-                      </div>
-                      <p>{item.body}</p>
-                    </article>
-                  )
-                )
-              )}
-            </div>
-
-            <form className="composer" onSubmit={sendMessage}>
-              {typingText ? <div className="typing-indicator">{typingText}</div> : null}
-              <textarea
-                value={messageDraft}
-                maxLength={MESSAGE_MAX_LENGTH}
-                onChange={handleMessageDraftChange}
-                onKeyDown={handleMessageDraftKeyDown}
-                placeholder="Write a message"
-                rows={2}
+            {appState ? (
+              <AppView
+                currentParticipant={currentParticipant}
+                spaceId={route.spaceId}
+                participants={participants}
+                appState={appState}
+                sendAppEvent={sendAppEvent}
+                setNotice={setNotice}
               />
-              <div className="composer-actions">
-                <span>{messageCount}/{MESSAGE_MAX_LENGTH}</span>
-                <button disabled={!canSend} type="submit">
-                  Send
-                </button>
-              </div>
-            </form>
+            ) : (
+              <div className="empty-state">Joining space...</div>
+            )}
           </>
         )}
 
         {notice ? <p className="notice">{notice}</p> : null}
       </section>
 
-      <aside className="presence-panel" aria-label="Online users">
-        <div className="presence-heading">
-          <h2>Online</h2>
-          <span>{users.length}</span>
+      <aside className="presence-panel" aria-label="Participants">
+        <div>
+          <p className="eyebrow">Presence</p>
+          <h2>{participants.length} online</h2>
         </div>
-        {users.length === 0 ? (
-          <p className="muted">Join the room to see who is here.</p>
+        {participants.length === 0 ? (
+          <p className="muted">No participants yet.</p>
         ) : (
-          <ul>
-            {users.map((user) => (
-              <li key={user.id}>
-                <span aria-hidden="true">{user.name.slice(0, 1).toUpperCase()}</span>
-                {user.name}
+          <ul className="participant-list">
+            {participants.map((participant) => (
+              <li key={participant.id}>
+                <span aria-hidden="true">{participant.name.slice(0, 1).toUpperCase()}</span>
+                {participant.name}
               </li>
             ))}
           </ul>

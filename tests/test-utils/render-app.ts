@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 
 const mockSocket = vi.hoisted(() => ({
+  id: 'socket-1',
   connected: false,
   connect: vi.fn(),
   disconnect: vi.fn(),

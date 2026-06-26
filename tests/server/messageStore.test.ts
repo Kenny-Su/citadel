@@ -3,15 +3,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_ROOM_ID, MESSAGE_HISTORY_LIMIT, type ChatMessage } from '../../src/shared/chat.js';
-import { createSqliteMessageStore, type MessageStore } from '../../src/server/messageStore.js';
+import { DEFAULT_SPACE_ID } from '../../src/shared/platform.js';
+import { MESSAGE_HISTORY_LIMIT, type ChatMessage } from '../../src/apps/chat/shared.js';
+import { createSqliteMessageStore, type MessageStore } from '../../src/apps/chat/messageStore.js';
 
 function makeMessage(index: number): ChatMessage {
   return {
     id: `message-${index.toString().padStart(3, '0')}`,
-    roomId: DEFAULT_ROOM_ID,
-    userId: 'user-1',
-    userName: 'Ada',
+    spaceId: DEFAULT_SPACE_ID,
+    participantId: 'participant-1',
+    participantName: 'Ada',
     body: `message ${index}`,
     createdAt: new Date(Date.UTC(2026, 0, 1, 12, 0, index)).toISOString()
   };
@@ -35,14 +36,14 @@ describe('sqlite message store', () => {
 
   it('initializes an empty database', () => {
     expect(store.countMessages()).toBe(0);
-    expect(store.listRecentMessages(DEFAULT_ROOM_ID)).toEqual([]);
+    expect(store.listRecentMessages(DEFAULT_SPACE_ID)).toEqual([]);
   });
 
   it('saves and reads messages in chronological order', () => {
     store.saveMessage(makeMessage(2));
     store.saveMessage(makeMessage(1));
 
-    expect(store.listRecentMessages(DEFAULT_ROOM_ID)).toEqual([makeMessage(1), makeMessage(2)]);
+    expect(store.listRecentMessages(DEFAULT_SPACE_ID)).toEqual([makeMessage(1), makeMessage(2)]);
     expect(store.countMessages()).toBe(2);
   });
 
@@ -51,7 +52,7 @@ describe('sqlite message store', () => {
       store.saveMessage(makeMessage(index));
     }
 
-    const messages = store.listRecentMessages(DEFAULT_ROOM_ID);
+    const messages = store.listRecentMessages(DEFAULT_SPACE_ID);
 
     expect(messages).toHaveLength(MESSAGE_HISTORY_LIMIT);
     expect(messages[0].id).toBe('message-005');
@@ -65,27 +66,27 @@ describe('sqlite message store', () => {
 
     store = createSqliteMessageStore(dbPath);
 
-    expect(store.listRecentMessages(DEFAULT_ROOM_ID)).toEqual([makeMessage(1)]);
+    expect(store.listRecentMessages(DEFAULT_SPACE_ID)).toEqual([makeMessage(1)]);
   });
 
   it('scopes messages by room', () => {
     const generalMessage = makeMessage(1);
-    const designMessage = { ...makeMessage(2), roomId: 'design' };
+    const designMessage = { ...makeMessage(2), spaceId: 'design' };
 
     store.saveMessage(generalMessage);
     store.saveMessage(designMessage);
 
-    expect(store.listRecentMessages(DEFAULT_ROOM_ID)).toEqual([generalMessage]);
+    expect(store.listRecentMessages(DEFAULT_SPACE_ID)).toEqual([generalMessage]);
     expect(store.listRecentMessages('design')).toEqual([designMessage]);
   });
 
   it('keeps the history limit per room', () => {
     for (let index = 0; index < MESSAGE_HISTORY_LIMIT + 5; index += 1) {
       store.saveMessage(makeMessage(index));
-      store.saveMessage({ ...makeMessage(index + 200), roomId: 'design' });
+      store.saveMessage({ ...makeMessage(index + 200), spaceId: 'design' });
     }
 
-    const generalMessages = store.listRecentMessages(DEFAULT_ROOM_ID);
+    const generalMessages = store.listRecentMessages(DEFAULT_SPACE_ID);
     const designMessages = store.listRecentMessages('design');
 
     expect(generalMessages).toHaveLength(MESSAGE_HISTORY_LIMIT);
@@ -94,7 +95,7 @@ describe('sqlite message store', () => {
     expect(designMessages[0].id).toBe('message-205');
   });
 
-  it('migrates existing messages into the default room', () => {
+  it('migrates existing messages into the default space', () => {
     store.close();
 
     const database = new DatabaseSync(dbPath);
@@ -114,12 +115,12 @@ describe('sqlite message store', () => {
 
     store = createSqliteMessageStore(dbPath);
 
-    expect(store.listRecentMessages(DEFAULT_ROOM_ID)).toEqual([
+    expect(store.listRecentMessages(DEFAULT_SPACE_ID)).toEqual([
       {
         id: 'legacy-1',
-        roomId: DEFAULT_ROOM_ID,
-        userId: 'user-1',
-        userName: 'Ada',
+        spaceId: DEFAULT_SPACE_ID,
+        participantId: 'user-1',
+        participantName: 'Ada',
         body: 'legacy message',
         createdAt: '2026-01-01T00:00:00.000Z'
       }
