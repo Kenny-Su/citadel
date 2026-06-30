@@ -1,11 +1,21 @@
 import type { AppId } from '../shared/platform.js';
 import { isAppId } from '../shared/platform.js';
 import type { AppManifest, ServerAppModule, ServerAppBundle } from '../platform/appContract.js';
-import type { ChatRepository, MessageStore } from './chat/index.js';
-import type { ChessRepository } from './chess/index.js';
-import { chatManifest, chatServerBundle, resolveChatRepository } from './chat/index.js';
-import { chessManifest, chessServerBundle, resolveChessRepository } from './chess/index.js';
-import { snakeManifest, snakeServerBundle } from './snake/index.js';
+import { chatManifest } from './chat/index.js';
+import {
+  chatServerBundle,
+  resolveChatRepository,
+  type ChatRepository,
+  type MessageStore
+} from './chat/serverEntry.js';
+import { chessManifest } from './chess/index.js';
+import {
+  chessServerBundle,
+  resolveChessRepository,
+  type ChessRepository
+} from './chess/serverEntry.js';
+import { snakeManifest } from './snake/index.js';
+import { snakeServerBundle } from './snake/serverEntry.js';
 import type { ChatRateLimitOptions, ServerAppServices } from './serverServices.js';
 
 export type { ChatRateLimitOptions, ServerAppServices } from './serverServices.js';

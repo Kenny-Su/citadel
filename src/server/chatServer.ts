@@ -1,7 +1,7 @@
 import { createPlatformServer, type PlatformServerOptions } from '../platform/server.js';
 import type { AppId } from '../shared/platform.js';
-import { type ChatRepository, type MessageStore } from '../apps/chat/index.js';
-import { type ChessRepository } from '../apps/chess/index.js';
+import { type ChatRepository, type MessageStore } from '../apps/chat/serverEntry.js';
+import { type ChessRepository } from '../apps/chess/serverEntry.js';
 import {
   createBundledServerApps,
   filterAppManifests,

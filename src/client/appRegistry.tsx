@@ -1,17 +1,11 @@
 import type { AppManifest, ClientAppModule } from '../platform/appContract';
 import type { AppEventEnvelope, AppId } from '../shared/platform';
-import {
-  chatClientApp,
-  type ChatState
-} from '../apps/chat';
-import {
-  chessClientApp,
-  type ChessState
-} from '../apps/chess';
-import {
-  snakeClientApp,
-  type SnakeState
-} from '../apps/snake';
+import type { ChatState } from '../apps/chat';
+import type { ChessState } from '../apps/chess';
+import type { SnakeState } from '../apps/snake';
+import { chatClientApp } from '../apps/chat/client';
+import { chessClientApp } from '../apps/chess/client';
+import { snakeClientApp } from '../apps/snake/client';
 
 export type { AppViewProps, ClientAppModule } from '../platform/appContract';
 

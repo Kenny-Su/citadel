@@ -12,23 +12,20 @@ import {
   resolveBundledRepositories
 } from '../../src/apps/serverRegistry.js';
 import { openCitadelDatabase, type CitadelDatabase } from '../../src/persistence/sqlite.js';
-import type { ChatRepository } from '../../src/apps/chat/index.js';
-import type { ChessRepository } from '../../src/apps/chess/index.js';
+import type { ChatRepository } from '../../src/apps/chat/serverEntry.js';
+import type { ChessRepository } from '../../src/apps/chess/serverEntry.js';
 import {
-  chatClientApp as publicChatClientApp,
-  chatManifest as publicChatManifest,
-  chatServerBundle as publicChatServerBundle
+  chatManifest as publicChatManifest
 } from '../../src/apps/chat/index.js';
 import {
-  chessClientApp as publicChessClientApp,
-  chessManifest as publicChessManifest,
-  chessServerBundle as publicChessServerBundle
+  chessManifest as publicChessManifest
 } from '../../src/apps/chess/index.js';
 import {
-  snakeClientApp as publicSnakeClientApp,
-  snakeManifest as publicSnakeManifest,
-  snakeServerBundle as publicSnakeServerBundle
+  snakeManifest as publicSnakeManifest
 } from '../../src/apps/snake/index.js';
+import { chatServerBundle as publicChatServerBundle } from '../../src/apps/chat/serverEntry.js';
+import { chessServerBundle as publicChessServerBundle } from '../../src/apps/chess/serverEntry.js';
+import { snakeServerBundle as publicSnakeServerBundle } from '../../src/apps/snake/serverEntry.js';
 
 describe('bundled server app registry', () => {
   let tempDir: string;
@@ -79,13 +76,8 @@ describe('bundled server app registry', () => {
     );
   });
 
-  it('exposes app manifests, client modules, and server bundles from public app entrypoints', () => {
+  it('exposes app manifests and server bundles from environment entrypoints', () => {
     expect([publicChatManifest, publicChessManifest, publicSnakeManifest].map((manifest) => manifest.appId)).toEqual([
-      'chat',
-      'chess',
-      'snake'
-    ]);
-    expect([publicChatClientApp, publicChessClientApp, publicSnakeClientApp].map((app) => app.appId)).toEqual([
       'chat',
       'chess',
       'snake'
@@ -154,22 +146,36 @@ describe('bundled server app registry', () => {
     expect(source).not.toContain('../apps/');
   });
 
-  it('keeps registries wired through public app entrypoints', () => {
+  it('keeps registries wired through environment-specific app entrypoints', () => {
     const clientRegistry = readFileSync(join(process.cwd(), 'src/client/appRegistry.tsx'), 'utf8');
     const serverRegistry = readFileSync(join(process.cwd(), 'src/apps/serverRegistry.ts'), 'utf8');
 
-    expect(clientRegistry).toContain("from '../apps/chat'");
-    expect(clientRegistry).toContain("from '../apps/chess'");
-    expect(clientRegistry).toContain("from '../apps/snake'");
+    expect(clientRegistry).toContain("from '../apps/chat/client'");
+    expect(clientRegistry).toContain("from '../apps/chess/client'");
+    expect(clientRegistry).toContain("from '../apps/snake/client'");
     expect(clientRegistry).not.toMatch(
-      /\.\.\/apps\/(?:chat|chess|snake)\/(?:client|shared|manifest|ChatView|ChessView|SnakeView)/
+      /\.\.\/apps\/(?:chat|chess|snake)\/(?:serverEntry|server|manifest|messageStore|repository|validation|ChatView|ChessView|SnakeView)/
     );
 
     expect(serverRegistry).toContain("from './chat/index.js'");
     expect(serverRegistry).toContain("from './chess/index.js'");
     expect(serverRegistry).toContain("from './snake/index.js'");
+    expect(serverRegistry).toContain("from './chat/serverEntry.js'");
+    expect(serverRegistry).toContain("from './chess/serverEntry.js'");
+    expect(serverRegistry).toContain("from './snake/serverEntry.js'");
     expect(serverRegistry).not.toMatch(
-      /\.\/(?:chat|chess|snake)\/(?:client|server|manifest|shared|repository|messageStore|validation)\.js/
+      /\.\/(?:chat|chess|snake)\/(?:client|server|manifest|shared|repository|messageStore|validation|ChatView|ChessView|SnakeView)\.js/
     );
+  });
+
+  it('keeps neutral app indexes free of client and server exports', () => {
+    for (const appId of ['chat', 'chess', 'snake']) {
+      const source = readFileSync(join(process.cwd(), `src/apps/${appId}/index.ts`), 'utf8');
+
+      expect(source).toContain(`export { ${appId}Manifest } from './manifest.js'`);
+      expect(source).not.toMatch(
+        /client|serverEntry|ServerBundle|Repository|messageStore|repository|create[A-Z].*App/
+      );
+    }
   });
 });
