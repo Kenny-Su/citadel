@@ -1,1 +1,1 @@
-export * from '../../src/platform/client.js';
+export * from './src/client.js';

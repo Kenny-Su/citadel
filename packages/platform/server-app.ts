@@ -1,1 +1,1 @@
-export * from '../../src/platform/serverApp.js';
+export * from './src/serverApp.js';

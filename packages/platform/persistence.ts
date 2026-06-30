@@ -1,1 +1,1 @@
-export * from '../../src/platform/persistence.js';
+export * from './src/persistence.js';

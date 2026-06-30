@@ -33,8 +33,10 @@ The current repo uses package-shaped aliases as a dry run for the future split:
 
 Workspace package shells exist under `packages/` as the scaffold for the source move. They expose thin TypeScript entrypoints that re-export the current `src/` modules:
 
-- `@citadel/platform` exports `./app`, `./client`, `./server-app`, and `./persistence`.
+- `@citadel/platform` owns its source under `packages/platform/src` and exports `./app`, `./client`, `./server-app`, and `./persistence`.
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` export `.`, `./client`, and `./server`.
+
+Temporary `src/platform/*` files remain as compatibility shims while the server/client shell code migrates to package imports.
 
 Shared server app services stay platform-only in `src/apps/serverServices.ts`. App-specific server options, such as repository injection or chat rate limits, belong to each app server entrypoint or to the bundled registry adapter.
 
@@ -56,7 +58,8 @@ For example, a future package can map these to exports like:
 - Neutral app indexes do not export client modules, server bundles, repositories, repository resolvers, or implementation factories.
 - App code imports platform contracts, shared platform helpers, and persistence APIs through `@citadel/platform/*` aliases rather than relative platform, shared, or persistence paths.
 - Registries import bundled app public surfaces through `@citadel/apps/*` aliases rather than relative app entrypoint paths.
-- Package shell entrypoints stay thin re-export shims until source files move into packages.
+- Platform implementation lives in `packages/platform/src`; compatibility files under `src/platform` must stay thin re-export shims.
+- App package shell entrypoints stay thin re-export shims until app source files move into packages.
 - App client code must not import server entrypoints, repositories, message stores, or `node:*` modules.
 - App server entrypoints must not import React views or app client modules.
 - Server-side code must not import `clientAppContract`, and client-side code must not import `serverAppContract`.

@@ -3,6 +3,18 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const appIds = ['chat', 'chess', 'snake'] as const;
+const platformModuleNames = [
+  'app',
+  'appContract',
+  'client',
+  'clientAppContract',
+  'persistence',
+  'server',
+  'serverApp',
+  'serverAppContract',
+  'validation',
+  'version'
+] as const;
 
 function source(path: string) {
   return readFileSync(join(process.cwd(), path), 'utf8');
@@ -14,20 +26,22 @@ function jsonSource<T>(path: string) {
 
 describe('app package import boundaries', () => {
   it('keeps platform core free of concrete app imports', () => {
-    expect(source('src/platform/server.ts')).not.toContain('../apps/');
-    expect(source('src/platform/appContract.ts')).not.toContain('../apps/');
-    expect(source('src/platform/app.ts')).not.toContain('../apps/');
-    expect(source('src/platform/client.ts')).not.toContain('../apps/');
-    expect(source('src/platform/serverApp.ts')).not.toContain('../apps/');
-    expect(source('src/platform/persistence.ts')).not.toContain('../apps/');
-    expect(source('src/platform/appContract.ts')).not.toContain('react');
+    for (const moduleName of platformModuleNames) {
+      expect(source(`packages/platform/src/${moduleName}.ts`)).not.toContain('../apps/');
+      expect(source(`packages/platform/src/${moduleName}.ts`)).not.toContain('../../../src/apps/');
+    }
+    expect(source('packages/platform/src/appContract.ts')).not.toContain('react');
   });
 
   it('keeps platform contracts split by environment', () => {
-    expect(source('src/platform/appContract.ts')).not.toMatch(/clientAppContract|serverAppContract|ComponentType/);
-    expect(source('src/platform/clientAppContract.ts')).toContain("from 'react'");
-    expect(source('src/platform/clientAppContract.ts')).not.toContain('serverAppContract');
-    expect(source('src/platform/serverAppContract.ts')).not.toMatch(/clientAppContract|react|ComponentType/);
+    expect(source('packages/platform/src/appContract.ts')).not.toMatch(
+      /clientAppContract|serverAppContract|ComponentType/
+    );
+    expect(source('packages/platform/src/clientAppContract.ts')).toContain("from 'react'");
+    expect(source('packages/platform/src/clientAppContract.ts')).not.toContain('serverAppContract');
+    expect(source('packages/platform/src/serverAppContract.ts')).not.toMatch(
+      /clientAppContract|react|ComponentType/
+    );
   });
 
   it('keeps neutral app indexes limited to manifests and shared types', () => {
@@ -223,14 +237,10 @@ describe('app package import boundaries', () => {
   });
 
   it('keeps workspace package entrypoints as thin source re-export shims', () => {
-    expect(source('packages/platform/app.ts').trim()).toBe("export * from '../../src/platform/app.js';");
-    expect(source('packages/platform/client.ts').trim()).toBe("export * from '../../src/platform/client.js';");
-    expect(source('packages/platform/server-app.ts').trim()).toBe(
-      "export * from '../../src/platform/serverApp.js';"
-    );
-    expect(source('packages/platform/persistence.ts').trim()).toBe(
-      "export * from '../../src/platform/persistence.js';"
-    );
+    expect(source('packages/platform/app.ts').trim()).toBe("export * from './src/app.js';");
+    expect(source('packages/platform/client.ts').trim()).toBe("export * from './src/client.js';");
+    expect(source('packages/platform/server-app.ts').trim()).toBe("export * from './src/serverApp.js';");
+    expect(source('packages/platform/persistence.ts').trim()).toBe("export * from './src/persistence.js';");
 
     for (const appId of appIds) {
       expect(source(`packages/apps/${appId}/index.ts`).trim()).toBe(
@@ -241,6 +251,14 @@ describe('app package import boundaries', () => {
       );
       expect(source(`packages/apps/${appId}/server.ts`).trim()).toBe(
         `export * from '../../../src/apps/${appId}/serverEntry.js';`
+      );
+    }
+  });
+
+  it('keeps src platform files as thin compatibility shims', () => {
+    for (const moduleName of platformModuleNames) {
+      expect(source(`src/platform/${moduleName}.ts`).trim()).toBe(
+        `export * from '../../packages/platform/src/${moduleName}.js';`
       );
     }
   });

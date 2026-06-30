@@ -1,1 +1,1 @@
-export const PLATFORM_VERSION = '0.1.0';
+export * from '../../packages/platform/src/version.js';
