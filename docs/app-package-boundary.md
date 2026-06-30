@@ -12,6 +12,12 @@ Each bundled app exposes three environment-specific surfaces:
 
 Bundled app order and manifest lists are owned by `src/apps/catalog.ts`. Client and server registries derive their ordered app lists from that neutral catalog.
 
+Platform contracts are split by environment:
+
+- `src/platform/appContract.ts`: neutral app metadata such as `AppManifest`.
+- `src/platform/clientAppContract.ts`: browser view contracts such as `AppViewProps` and `ClientAppModule`.
+- `src/platform/serverAppContract.ts`: server runtime contracts such as `ServerAppContext`, `ServerAppModule`, and `ServerAppBundle`.
+
 For example, a future package can map these to exports like:
 
 ```json
@@ -30,6 +36,7 @@ For example, a future package can map these to exports like:
 - Neutral app indexes do not export client modules, server bundles, repositories, repository resolvers, or implementation factories.
 - App client code must not import server entrypoints, repositories, message stores, or `node:*` modules.
 - App server entrypoints must not import React views or app client modules.
+- Server-side code must not import `clientAppContract`, and client-side code must not import `serverAppContract`.
 
 Compatibility shims such as `src/server/messageStore.ts` and focused repository tests may still import implementation files directly. Those are compatibility and implementation-test boundaries, not platform runtime wiring.
 

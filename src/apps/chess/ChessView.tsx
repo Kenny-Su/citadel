@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppViewProps } from '../../platform/appContract.js';
+import type { AppViewProps } from '../../platform/clientAppContract.js';
 import type { ChessState } from './shared.js';
 
 const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];

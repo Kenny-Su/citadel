@@ -14,7 +14,8 @@ import {
   normalizeGuestId,
   normalizeSpaceId
 } from '../shared/platform.js';
-import type { AppManifest, ServerAppContext, ServerAppModule } from './appContract.js';
+import type { AppManifest } from './appContract.js';
+import type { ServerAppContext, ServerAppModule } from './serverAppContract.js';
 import { validateDisplayName } from './validation.js';
 import { PLATFORM_VERSION } from './version.js';
 

@@ -1,6 +1,7 @@
 import type { AppId } from '../shared/platform.js';
 import { isAppId } from '../shared/platform.js';
-import type { AppManifest, ServerAppModule, ServerAppBundle } from '../platform/appContract.js';
+import type { AppManifest } from '../platform/appContract.js';
+import type { ServerAppModule, ServerAppBundle } from '../platform/serverAppContract.js';
 import {
   bundledAppIds,
   bundledAppManifests,

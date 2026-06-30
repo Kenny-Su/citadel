@@ -12,6 +12,14 @@ describe('app package import boundaries', () => {
   it('keeps platform core free of concrete app imports', () => {
     expect(source('src/platform/server.ts')).not.toContain('../apps/');
     expect(source('src/platform/appContract.ts')).not.toContain('../apps/');
+    expect(source('src/platform/appContract.ts')).not.toContain('react');
+  });
+
+  it('keeps platform contracts split by environment', () => {
+    expect(source('src/platform/appContract.ts')).not.toMatch(/clientAppContract|serverAppContract|ComponentType/);
+    expect(source('src/platform/clientAppContract.ts')).toContain("from 'react'");
+    expect(source('src/platform/clientAppContract.ts')).not.toContain('serverAppContract');
+    expect(source('src/platform/serverAppContract.ts')).not.toMatch(/clientAppContract|react|ComponentType/);
   });
 
   it('keeps neutral app indexes limited to manifests and shared types', () => {
@@ -53,7 +61,7 @@ describe('app package import boundaries', () => {
 
   it('keeps app client code away from server-only surfaces', () => {
     const forbiddenClientImports =
-      /(?:serverEntry|messageStore|repository|node:fs|node:path|node:sqlite|from ['"]\.\/server(?:\.js)?['"])/;
+      /(?:serverEntry|serverAppContract|messageStore|repository|node:fs|node:path|node:sqlite|from ['"]\.\/server(?:\.js)?['"])/;
 
     for (const appId of appIds) {
       expect(source(`src/apps/${appId}/client.tsx`)).not.toMatch(forbiddenClientImports);
@@ -64,10 +72,17 @@ describe('app package import boundaries', () => {
   });
 
   it('keeps app server entrypoints away from client-only surfaces', () => {
-    const forbiddenServerImports = /(?:\.\/client|ChatView|ChessView|SnakeView|react)/;
+    const forbiddenServerImports = /(?:\.\/client|clientAppContract|ChatView|ChessView|SnakeView|react)/;
 
     for (const appId of appIds) {
       expect(source(`src/apps/${appId}/serverEntry.ts`)).not.toMatch(forbiddenServerImports);
     }
+  });
+
+  it('keeps registries on environment-specific platform contracts', () => {
+    expect(source('src/client/appRegistry.tsx')).toContain('../platform/clientAppContract');
+    expect(source('src/client/appRegistry.tsx')).not.toContain('serverAppContract');
+    expect(source('src/apps/serverRegistry.ts')).toContain('../platform/serverAppContract.js');
+    expect(source('src/apps/serverRegistry.ts')).not.toContain('clientAppContract');
   });
 });

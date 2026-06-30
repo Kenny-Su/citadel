@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppViewProps } from '../../platform/appContract.js';
+import type { AppViewProps } from '../../platform/clientAppContract.js';
 import { MESSAGE_MAX_LENGTH, type ChatMessage, type ChatState, type TypingUpdatePayload } from './shared.js';
 
 const TYPING_IDLE_TIMEOUT_MS = 1200;

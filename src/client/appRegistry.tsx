@@ -1,4 +1,5 @@
-import type { AppManifest, ClientAppModule } from '../platform/appContract';
+import type { AppManifest } from '../platform/appContract';
+import type { ClientAppModule } from '../platform/clientAppContract';
 import type { AppEventEnvelope, AppId } from '../shared/platform';
 import type { ChatState } from '../apps/chat';
 import type { ChessState } from '../apps/chess';
@@ -8,7 +9,7 @@ import { chatClientApp } from '../apps/chat/client';
 import { chessClientApp } from '../apps/chess/client';
 import { snakeClientApp } from '../apps/snake/client';
 
-export type { AppViewProps, ClientAppModule } from '../platform/appContract';
+export type { AppViewProps, ClientAppModule } from '../platform/clientAppContract';
 
 export const allClientApps = orderBundledAppEntries({
   chat: chatClientApp,

@@ -1,4 +1,4 @@
-import type { ClientAppModule } from '../../platform/appContract.js';
+import type { ClientAppModule } from '../../platform/clientAppContract.js';
 import type { ChessState } from './shared.js';
 import { ChessView } from './ChessView.js';
 import { chessManifest } from './manifest.js';
