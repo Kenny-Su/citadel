@@ -14,6 +14,21 @@ import {
 import { openCitadelDatabase, type CitadelDatabase } from '../../src/persistence/sqlite.js';
 import type { ChatRepository } from '../../src/apps/chat/index.js';
 import type { ChessRepository } from '../../src/apps/chess/index.js';
+import {
+  chatClientApp as publicChatClientApp,
+  chatManifest as publicChatManifest,
+  chatServerBundle as publicChatServerBundle
+} from '../../src/apps/chat/index.js';
+import {
+  chessClientApp as publicChessClientApp,
+  chessManifest as publicChessManifest,
+  chessServerBundle as publicChessServerBundle
+} from '../../src/apps/chess/index.js';
+import {
+  snakeClientApp as publicSnakeClientApp,
+  snakeManifest as publicSnakeManifest,
+  snakeServerBundle as publicSnakeServerBundle
+} from '../../src/apps/snake/index.js';
 
 describe('bundled server app registry', () => {
   let tempDir: string;
@@ -62,6 +77,24 @@ describe('bundled server app registry', () => {
     expect(bundledAppManifests.map((manifest) => manifest.appId)).toEqual(
       bundledServerAppBundles.map((bundle) => bundle.appId)
     );
+  });
+
+  it('exposes app manifests, client modules, and server bundles from public app entrypoints', () => {
+    expect([publicChatManifest, publicChessManifest, publicSnakeManifest].map((manifest) => manifest.appId)).toEqual([
+      'chat',
+      'chess',
+      'snake'
+    ]);
+    expect([publicChatClientApp, publicChessClientApp, publicSnakeClientApp].map((app) => app.appId)).toEqual([
+      'chat',
+      'chess',
+      'snake'
+    ]);
+    expect([publicChatServerBundle, publicChessServerBundle, publicSnakeServerBundle].map((bundle) => bundle.appId)).toEqual([
+      'chat',
+      'chess',
+      'snake'
+    ]);
   });
 
   it('parses enabled app configuration with defaults and fallback', () => {
@@ -119,5 +152,24 @@ describe('bundled server app registry', () => {
     const source = readFileSync(join(process.cwd(), 'src/platform/server.ts'), 'utf8');
 
     expect(source).not.toContain('../apps/');
+  });
+
+  it('keeps registries wired through public app entrypoints', () => {
+    const clientRegistry = readFileSync(join(process.cwd(), 'src/client/appRegistry.tsx'), 'utf8');
+    const serverRegistry = readFileSync(join(process.cwd(), 'src/apps/serverRegistry.ts'), 'utf8');
+
+    expect(clientRegistry).toContain("from '../apps/chat'");
+    expect(clientRegistry).toContain("from '../apps/chess'");
+    expect(clientRegistry).toContain("from '../apps/snake'");
+    expect(clientRegistry).not.toMatch(
+      /\.\.\/apps\/(?:chat|chess|snake)\/(?:client|shared|manifest|ChatView|ChessView|SnakeView)/
+    );
+
+    expect(serverRegistry).toContain("from './chat/index.js'");
+    expect(serverRegistry).toContain("from './chess/index.js'");
+    expect(serverRegistry).toContain("from './snake/index.js'");
+    expect(serverRegistry).not.toMatch(
+      /\.\/(?:chat|chess|snake)\/(?:client|server|manifest|shared|repository|messageStore|validation)\.js/
+    );
   });
 });

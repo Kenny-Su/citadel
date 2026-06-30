@@ -1,6 +1,6 @@
 import React from 'react';
-import type { AppViewProps } from '../../client/appRegistry';
-import type { ChessState } from './shared';
+import type { AppViewProps } from '../../platform/appContract.js';
+import type { ChessState } from './shared.js';
 
 const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];

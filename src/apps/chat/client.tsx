@@ -1,4 +1,4 @@
-import type { ClientAppModule } from '../../client/appRegistry.js';
+import type { ClientAppModule } from '../../platform/appContract.js';
 import type { ChatState } from './shared.js';
 import { ChatView } from './ChatView.js';
 import { chatManifest } from './manifest.js';

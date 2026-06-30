@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import type { AppEventEnvelope, AppId, Participant } from '../shared/platform.js';
 
 export type AppManifest = {
@@ -6,6 +7,22 @@ export type AppManifest = {
   defaultSpaceId: string;
   persistence: 'none' | 'sqlite';
   version: string;
+};
+
+export type AppViewProps<TState = unknown> = {
+  currentParticipant: Participant;
+  spaceId: string;
+  participants: Participant[];
+  appState: TState;
+  sendAppEvent(type: string, payload?: unknown): void;
+  setNotice(message: string): void;
+};
+
+export type ClientAppModule<TState = unknown> = {
+  appId: AppId;
+  label: string;
+  defaultSpaceId: string;
+  View: ComponentType<AppViewProps<TState>>;
 };
 
 export type ServerAppContext = {

@@ -1,28 +1,19 @@
-import type React from 'react';
-import type { AppManifest } from '../platform/appContract';
-import type { AppEventEnvelope, AppId, Participant } from '../shared/platform';
-import type { ChatState } from '../apps/chat/shared';
-import type { ChessState } from '../apps/chess/shared';
-import type { SnakeState } from '../apps/snake/shared';
-import { chatClientApp } from '../apps/chat/client';
-import { chessClientApp } from '../apps/chess/client';
-import { snakeClientApp } from '../apps/snake/client';
+import type { AppManifest, ClientAppModule } from '../platform/appContract';
+import type { AppEventEnvelope, AppId } from '../shared/platform';
+import {
+  chatClientApp,
+  type ChatState
+} from '../apps/chat';
+import {
+  chessClientApp,
+  type ChessState
+} from '../apps/chess';
+import {
+  snakeClientApp,
+  type SnakeState
+} from '../apps/snake';
 
-export type AppViewProps<TState = unknown> = {
-  currentParticipant: Participant;
-  spaceId: string;
-  participants: Participant[];
-  appState: TState;
-  sendAppEvent(type: string, payload?: unknown): void;
-  setNotice(message: string): void;
-};
-
-export type ClientAppModule<TState = unknown> = {
-  appId: AppId;
-  label: string;
-  defaultSpaceId: string;
-  View: React.ComponentType<AppViewProps<TState>>;
-};
+export type { AppViewProps, ClientAppModule } from '../platform/appContract';
 
 export const allClientApps = [chatClientApp, chessClientApp, snakeClientApp] satisfies ClientAppModule<any>[];
 

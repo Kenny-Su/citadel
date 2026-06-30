@@ -1,9 +1,10 @@
 import type { ServerAppBundle } from '../../platform/appContract.js';
-import type { ServerAppServices } from '../serverRegistry.js';
+import type { ServerAppServices } from '../serverServices.js';
 import { createChessRepository } from './repository.js';
 import { createChessApp } from './server.js';
 import { chessManifest } from './manifest.js';
 
+export { chessClientApp } from './client.js';
 export {
   createChessRepository,
   type ChessRepository,
@@ -11,6 +12,12 @@ export {
   type PersistedChessMove
 } from './repository.js';
 export { chessManifest } from './manifest.js';
+export type {
+  ChessColor,
+  ChessMovePayload,
+  ChessPlayerMap,
+  ChessState
+} from './shared.js';
 
 export function resolveChessRepository(services: ServerAppServices) {
   return services.chessRepository ?? createChessRepository(services.database.database);

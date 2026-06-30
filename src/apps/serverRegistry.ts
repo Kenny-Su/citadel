@@ -1,26 +1,14 @@
 import type { AppId } from '../shared/platform.js';
 import { isAppId } from '../shared/platform.js';
 import type { AppManifest, ServerAppModule, ServerAppBundle } from '../platform/appContract.js';
-import type { CitadelDatabase } from '../persistence/sqlite.js';
 import type { ChatRepository, MessageStore } from './chat/index.js';
 import type { ChessRepository } from './chess/index.js';
 import { chatManifest, chatServerBundle, resolveChatRepository } from './chat/index.js';
 import { chessManifest, chessServerBundle, resolveChessRepository } from './chess/index.js';
 import { snakeManifest, snakeServerBundle } from './snake/index.js';
+import type { ChatRateLimitOptions, ServerAppServices } from './serverServices.js';
 
-export type ChatRateLimitOptions = {
-  maxMessages: number;
-  windowMs: number;
-};
-
-export type ServerAppServices = {
-  database: CitadelDatabase;
-  chatRepository?: ChatRepository;
-  chessRepository?: ChessRepository;
-  messageStore?: MessageStore;
-  messageRateLimit?: ChatRateLimitOptions;
-  enabledAppIds?: AppId[];
-};
+export type { ChatRateLimitOptions, ServerAppServices } from './serverServices.js';
 
 export function resolveBundledRepositories(services: ServerAppServices) {
   return {

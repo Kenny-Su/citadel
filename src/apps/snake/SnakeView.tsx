@@ -1,6 +1,6 @@
 import React from 'react';
-import type { AppViewProps } from '../../client/appRegistry';
-import type { SnakeDirection, SnakeState } from './shared';
+import type { AppViewProps } from '../../platform/appContract.js';
+import type { SnakeDirection, SnakeState } from './shared.js';
 
 export function SnakeView({
   currentParticipant,
