@@ -75,6 +75,13 @@ type PackageTsconfig = {
   compilerOptions?: Record<string, unknown>;
 };
 
+const packagePaths = [
+  'packages/platform',
+  'packages/apps/chat',
+  'packages/apps/chess',
+  'packages/apps/snake'
+] as const;
+
 function appImplementationPath(appId: (typeof appIds)[number], fileName: string) {
   return `packages/apps/${appId}/src/${fileName}`;
 }
@@ -255,12 +262,10 @@ describe('app package import boundaries', () => {
       'npm run typecheck:client && npm run typecheck:server && npm run typecheck:packages'
     );
     expect(rootPackage.scripts['typecheck:packages']).toBe('npm run typecheck --workspaces --if-present');
-    expect(rootPackage.workspaces).toEqual([
-      'packages/platform',
-      'packages/apps/chat',
-      'packages/apps/chess',
-      'packages/apps/snake'
-    ]);
+    expect(rootPackage.scripts.build).toBe('npm run typecheck && npm run build:packages && npm run build:client');
+    expect(rootPackage.scripts['build:packages']).toBe('npm run build --workspaces --if-present');
+    expect(rootPackage.scripts['clean:packages']).toBe('npm run clean --workspaces --if-present');
+    expect(rootPackage.workspaces).toEqual([...packagePaths]);
     expect(platformPackage.name).toBe('@citadel/platform');
     expect(platformPackage.exports).toEqual({
       './app': './app.ts',
@@ -270,6 +275,10 @@ describe('app package import boundaries', () => {
       './server': './server.ts',
       './validation': './validation.ts'
     });
+    expect(Object.values(platformPackage.exports).every((entry) => entry.endsWith('.ts'))).toBe(true);
+    expect(Object.values(platformPackage.exports).every((entry) => !entry.startsWith('./dist/'))).toBe(true);
+    expect(platformPackage.scripts.build).toBe('tsc -p tsconfig.build.json');
+    expect(platformPackage.scripts.clean).toBe("node -e \"fs.rmSync('dist', { recursive: true, force: true })\"");
     expect(platformPackage.scripts.typecheck).toBe('tsc -p tsconfig.json --noEmit');
 
     for (const appId of appIds) {
@@ -295,6 +304,10 @@ describe('app package import boundaries', () => {
             './server': './server.ts'
           }
       );
+      expect(Object.values(appPackage.exports).every((entry) => entry.endsWith('.ts'))).toBe(true);
+      expect(Object.values(appPackage.exports).every((entry) => !entry.startsWith('./dist/'))).toBe(true);
+      expect(appPackage.scripts.build).toBe('tsc -p tsconfig.build.json');
+      expect(appPackage.scripts.clean).toBe("node -e \"fs.rmSync('dist', { recursive: true, force: true })\"");
       expect(appPackage.scripts.typecheck).toBe('tsc -p tsconfig.json --noEmit');
       expect(appPackage.dependencies?.['@citadel/platform']).toBe('0.1.0');
     }
@@ -320,6 +333,44 @@ describe('app package import boundaries', () => {
       expect(appConfig.include).toEqual(['*.ts', 'src/**/*.ts', 'src/**/*.tsx']);
       expect(appConfig.include?.join(' ')).not.toMatch(/\.\.|tests|packages\//);
       expect(appConfig.compilerOptions).toBeUndefined();
+    }
+  });
+
+  it('builds package artifacts without making dist the source of truth', () => {
+    const gitignore = source('.gitignore');
+    const packageBuildBase = jsonSource<PackageTsconfig>('tsconfig.package-build-base.json');
+
+    expect(gitignore).toContain('dist/');
+    expect(packageBuildBase.extends).toBe('./tsconfig.package-base.json');
+    expect(packageBuildBase.compilerOptions).toMatchObject({
+      declaration: true,
+      declarationMap: true,
+      emitDeclarationOnly: false,
+      noEmit: false,
+      noEmitOnError: true,
+      sourceMap: true
+    });
+    expect(packageBuildBase.compilerOptions).not.toHaveProperty('outDir');
+
+    for (const packagePath of packagePaths) {
+      const buildConfig = jsonSource<PackageTsconfig>(`${packagePath}/tsconfig.build.json`);
+
+      expect(buildConfig.extends).toMatch(/tsconfig\.package-build-base\.json$/);
+      if (packagePath === 'packages/platform') {
+        expect(buildConfig.compilerOptions).toEqual({ outDir: 'dist', rootDir: '.' });
+      } else {
+        expect(buildConfig.compilerOptions?.outDir).toBe('dist');
+        expect(buildConfig.compilerOptions?.rootDir).toBe('.');
+        expect(buildConfig.compilerOptions?.paths).toMatchObject({
+          '@citadel/platform/app': ['packages/platform/dist/app.d.ts'],
+          '@citadel/platform/client': ['packages/platform/dist/client.d.ts'],
+          '@citadel/platform/server-app': ['packages/platform/dist/server-app.d.ts'],
+          '@citadel/platform/persistence': ['packages/platform/dist/persistence.d.ts'],
+          '@citadel/platform/server': ['packages/platform/dist/server.d.ts'],
+          '@citadel/platform/validation': ['packages/platform/dist/validation.d.ts']
+        });
+      }
+      expect(buildConfig.include?.join(' ')).not.toMatch(/\.\.|tests|packages\//);
     }
   });
 

@@ -9,6 +9,8 @@
     "./server": "./server.ts"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

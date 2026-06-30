@@ -38,6 +38,7 @@ Workspace packages exist under `packages/` as the scaffold for the source split.
 - `@citadel/platform` owns its source under `packages/platform/src` and exports `./app`, `./client`, `./server-app`, and `./persistence`.
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` export `.`, `./client`, and `./server`.
 - Each workspace package has a package-local no-emit TypeScript check. These checks prove package isolation, but they do not produce JavaScript, declarations, or publishable package artifacts yet.
+- Each workspace package also has a local package build that emits JavaScript and declarations into its ignored `dist/` directory. The host still consumes TypeScript source aliases in this step; package `exports` move to built artifacts in a later host-consumes-dist step.
 
 Shared platform payloads and SQLite persistence are platform-owned under `packages/platform/src`.
 All bundled apps are source-owning workspace packages: their implementations live under `packages/apps/<app>/src`.
@@ -67,6 +68,7 @@ For example, a future package can map these to exports like:
 - Bundled app assembly lives in `src/bundledApps`; root `src/apps` compatibility shims are removed.
 - App package shell entrypoints stay thin re-export shims to package-local source once each app moves.
 - Package `tsconfig.json` files include only package-local entrypoints and source files. They must not include root host code, tests, or sibling package source by relative path.
+- Package build configs emit artifacts into package-local `dist/` directories only. Generated artifacts are inspectable build output, not committed source of truth.
 - App client code must not import server entrypoints, repositories, message stores, or `node:*` modules.
 - App server entrypoints must not import React views or app client modules.
 - Server-side code must not import `clientAppContract`, and client-side code must not import `serverAppContract`.
