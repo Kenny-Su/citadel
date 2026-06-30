@@ -1,4 +1,4 @@
-import type { ServerAppBundle, ServerAppServices } from '../../platform/serverApp.js';
+import type { ServerAppBundle, ServerAppServices } from '@citadel/platform/server-app';
 import { chatManifest } from './manifest.js';
 import { createChatRepository, type ChatRepository, type MessageStore } from './messageStore.js';
 import { createChatApp } from './server.js';

@@ -6,7 +6,7 @@ import {
   bundledAppIds,
   bundledAppManifests,
   orderBundledAppEntries
-} from './catalog.js';
+} from '@citadel/apps/catalog';
 import {
   chatServerBundle,
   resolveChatRepository,
@@ -14,17 +14,17 @@ import {
   type ChatRepository,
   type ChatServerAppServices,
   type MessageStore
-} from './chat/serverEntry.js';
+} from '@citadel/apps/chat/server';
 import {
   chessServerBundle,
   resolveChessRepository,
   type ChessRepository,
   type ChessServerAppServices
-} from './chess/serverEntry.js';
-import { snakeServerBundle } from './snake/serverEntry.js';
+} from '@citadel/apps/chess/server';
+import { snakeServerBundle } from '@citadel/apps/snake/server';
 import type { ServerAppServices } from './serverServices.js';
 
-export type { ChatRateLimitOptions } from './chat/serverEntry.js';
+export type { ChatRateLimitOptions } from '@citadel/apps/chat/server';
 export type { ServerAppServices } from './serverServices.js';
 
 export type BundledServerAppServices = ServerAppServices & {
@@ -42,7 +42,7 @@ export function resolveBundledRepositories(services: BundledServerAppServices) {
   };
 }
 
-export { bundledAppManifests } from './catalog.js';
+export { bundledAppManifests } from '@citadel/apps/catalog';
 
 type BundledServerAppBundle =
   | typeof chatServerBundle

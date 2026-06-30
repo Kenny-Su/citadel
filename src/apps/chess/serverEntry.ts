@@ -1,4 +1,4 @@
-import type { ServerAppBundle, ServerAppServices } from '../../platform/serverApp.js';
+import type { ServerAppBundle, ServerAppServices } from '@citadel/platform/server-app';
 import { chessManifest } from './manifest.js';
 import { createChessRepository, type ChessRepository } from './repository.js';
 import { createChessApp } from './server.js';

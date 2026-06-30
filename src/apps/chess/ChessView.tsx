@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppViewProps } from '../../platform/client.js';
+import type { AppViewProps } from '@citadel/platform/client';
 import type { ChessState } from './shared.js';
 
 const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];

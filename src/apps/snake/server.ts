@@ -1,5 +1,5 @@
-import type { Participant } from '../../platform/app.js';
-import type { ServerAppContext, ServerAppModule } from '../../platform/serverApp.js';
+import type { Participant } from '@citadel/platform/app';
+import type { ServerAppContext, ServerAppModule } from '@citadel/platform/server-app';
 import type { SnakeDirection, SnakeDirectionPayload, SnakePlayer, SnakeSegment, SnakeState } from './shared.js';
 
 const WIDTH = 20;

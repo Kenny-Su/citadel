@@ -1,4 +1,4 @@
-import type { AppManifest } from '../../platform/app.js';
+import type { AppManifest } from '@citadel/platform/app';
 
 export const chatManifest = {
   appId: 'chat',

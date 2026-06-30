@@ -1,4 +1,4 @@
-import type { ServerAppBundle, ServerAppServices } from '../../platform/serverApp.js';
+import type { ServerAppBundle, ServerAppServices } from '@citadel/platform/server-app';
 import { snakeManifest } from './manifest.js';
 import { createSnakeApp } from './server.js';
 

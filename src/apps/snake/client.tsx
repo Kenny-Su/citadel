@@ -1,4 +1,4 @@
-import type { ClientAppModule } from '../../platform/client.js';
+import type { ClientAppModule } from '@citadel/platform/client';
 import type { SnakeState } from './shared.js';
 import { SnakeView } from './SnakeView.js';
 import { snakeManifest } from './manifest.js';

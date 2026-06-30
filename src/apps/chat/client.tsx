@@ -1,4 +1,4 @@
-import type { ClientAppModule } from '../../platform/client.js';
+import type { ClientAppModule } from '@citadel/platform/client';
 import type { ChatState } from './shared.js';
 import { ChatView } from './ChatView.js';
 import { chatManifest } from './manifest.js';

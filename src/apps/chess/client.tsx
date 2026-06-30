@@ -1,4 +1,4 @@
-import type { ClientAppModule } from '../../platform/client.js';
+import type { ClientAppModule } from '@citadel/platform/client';
 import type { ChessState } from './shared.js';
 import { ChessView } from './ChessView.js';
 import { chessManifest } from './manifest.js';

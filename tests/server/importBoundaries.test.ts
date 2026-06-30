@@ -41,10 +41,11 @@ describe('app package import boundaries', () => {
   it('keeps client registry wired only to app client entrypoints and neutral shared types', () => {
     const registry = source('src/client/appRegistry.tsx');
 
-    expect(registry).toContain("from '../apps/catalog'");
+    expect(registry).toContain("from '@citadel/apps/catalog'");
     for (const appId of appIds) {
-      expect(registry).toContain(`from '../apps/${appId}'`);
-      expect(registry).toContain(`from '../apps/${appId}/client'`);
+      expect(registry).toContain(`from '@citadel/apps/${appId}'`);
+      expect(registry).toContain(`from '@citadel/apps/${appId}/client'`);
+      expect(registry).not.toContain(`@citadel/apps/${appId}/server`);
     }
     expect(registry).not.toMatch(
       /\.\.\/apps\/(?:chat|chess|snake)\/(?:serverEntry|server|manifest|messageStore|repository|validation|ChatView|ChessView|SnakeView)/
@@ -54,9 +55,10 @@ describe('app package import boundaries', () => {
   it('keeps server registry wired only to app server entrypoints and neutral manifests', () => {
     const registry = source('src/apps/serverRegistry.ts');
 
-    expect(registry).toContain("from './catalog.js'");
+    expect(registry).toContain("from '@citadel/apps/catalog'");
     for (const appId of appIds) {
-      expect(registry).toContain(`from './${appId}/serverEntry.js'`);
+      expect(registry).toContain(`from '@citadel/apps/${appId}/server'`);
+      expect(registry).not.toContain(`@citadel/apps/${appId}/client`);
     }
     expect(registry).not.toMatch(
       /\.\/(?:chat|chess|snake)\/(?:client|server|manifest|shared|repository|messageStore|validation|ChatView|ChessView|SnakeView)\.js/
@@ -105,7 +107,7 @@ describe('app package import boundaries', () => {
 
   it('keeps app code on platform facade imports', () => {
     const forbiddenDeepAppImports =
-      /\.\.\/\.\.\/(?:shared\/platform|platform\/(?:appContract|clientAppContract|serverAppContract|validation)|persistence\/sqlite)\.js?/;
+      /\.\.\/\.\.\/(?:shared\/platform|platform\/(?:app|client|serverApp|persistence|appContract|clientAppContract|serverAppContract|validation)|persistence\/sqlite)\.js?/;
 
     for (const appId of appIds) {
       const manifest = source(`src/apps/${appId}/manifest.ts`);
@@ -114,25 +116,54 @@ describe('app package import boundaries', () => {
       const server = source(`src/apps/${appId}/server.ts`);
       const serverEntry = source(`src/apps/${appId}/serverEntry.ts`);
 
-      expect(manifest).toContain('../../platform/app.js');
+      expect(manifest).toContain('@citadel/platform/app');
       expect(manifest).not.toMatch(forbiddenDeepAppImports);
-      expect(client).toContain('../../platform/client.js');
+      expect(client).toContain('@citadel/platform/client');
+      expect(client).not.toContain('@citadel/platform/server-app');
       expect(client).not.toMatch(forbiddenDeepAppImports);
-      expect(view).toContain('../../platform/client.js');
+      expect(view).toContain('@citadel/platform/client');
+      expect(view).not.toContain('@citadel/platform/server-app');
       expect(view).not.toMatch(forbiddenDeepAppImports);
-      expect(server).toContain('../../platform/');
+      expect(server).toContain('@citadel/platform/');
+      expect(server).not.toContain('@citadel/platform/client');
       expect(server).not.toMatch(forbiddenDeepAppImports);
-      expect(serverEntry).toContain('../../platform/serverApp.js');
+      expect(serverEntry).toContain('@citadel/platform/server-app');
+      expect(serverEntry).not.toContain('@citadel/platform/client');
       expect(serverEntry).not.toMatch(forbiddenDeepAppImports);
       expect(serverEntry).not.toContain('../serverServices.js');
     }
 
-    expect(source('src/apps/chat/shared.ts')).toContain('../../platform/app.js');
+    expect(source('src/apps/chat/shared.ts')).toContain('@citadel/platform/app');
     expect(source('src/apps/chat/shared.ts')).not.toMatch(forbiddenDeepAppImports);
-    expect(source('src/apps/chat/validation.ts')).toContain('../../platform/app.js');
+    expect(source('src/apps/chat/validation.ts')).toContain('@citadel/platform/app');
     expect(source('src/apps/chat/validation.ts')).not.toMatch(forbiddenDeepAppImports);
-    expect(source('src/apps/chat/messageStore.ts')).toContain('../../platform/app.js');
-    expect(source('src/apps/chat/messageStore.ts')).toContain('../../platform/persistence.js');
+    expect(source('src/apps/chat/messageStore.ts')).toContain('@citadel/platform/app');
+    expect(source('src/apps/chat/messageStore.ts')).toContain('@citadel/platform/persistence');
     expect(source('src/apps/chat/messageStore.ts')).not.toMatch(forbiddenDeepAppImports);
+  });
+
+  it('declares package-shaped aliases for TypeScript and Vite', () => {
+    const tsconfig = source('tsconfig.json');
+    const viteConfig = source('vite.config.ts');
+
+    for (const alias of [
+      '@citadel/platform/app',
+      '@citadel/platform/client',
+      '@citadel/platform/server-app',
+      '@citadel/platform/persistence',
+      '@citadel/apps/catalog',
+      '@citadel/apps/chat',
+      '@citadel/apps/chat/client',
+      '@citadel/apps/chat/server',
+      '@citadel/apps/chess',
+      '@citadel/apps/chess/client',
+      '@citadel/apps/chess/server',
+      '@citadel/apps/snake',
+      '@citadel/apps/snake/client',
+      '@citadel/apps/snake/server'
+    ]) {
+      expect(tsconfig).toContain(alias);
+      expect(viteConfig).toContain(alias);
+    }
   });
 });

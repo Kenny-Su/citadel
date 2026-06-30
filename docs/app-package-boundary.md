@@ -25,6 +25,12 @@ Bundled apps import platform APIs through small app-facing facades. These are th
 - `src/platform/serverApp.ts`: server app contracts and shared platform server services.
 - `src/platform/persistence.ts`: persistence APIs intentionally available to app repositories.
 
+The current repo uses package-shaped aliases as a dry run for the future split:
+
+- `@citadel/platform/app`, `@citadel/platform/client`, `@citadel/platform/server-app`, and `@citadel/platform/persistence`.
+- `@citadel/apps/catalog`.
+- `@citadel/apps/<app>`, `@citadel/apps/<app>/client`, and `@citadel/apps/<app>/server`.
+
 Shared server app services stay platform-only in `src/apps/serverServices.ts`. App-specific server options, such as repository injection or chat rate limits, belong to each app server entrypoint or to the bundled registry adapter.
 
 For example, a future package can map these to exports like:
@@ -43,7 +49,8 @@ For example, a future package can map these to exports like:
 - The client registry imports app client entrypoints plus neutral shared types.
 - The server registry imports neutral manifests plus app server entrypoints.
 - Neutral app indexes do not export client modules, server bundles, repositories, repository resolvers, or implementation factories.
-- App code imports platform contracts, shared platform helpers, and persistence APIs through the platform facades rather than deep platform, shared, or persistence modules.
+- App code imports platform contracts, shared platform helpers, and persistence APIs through `@citadel/platform/*` aliases rather than relative platform, shared, or persistence paths.
+- Registries import bundled app public surfaces through `@citadel/apps/*` aliases rather than relative app entrypoint paths.
 - App client code must not import server entrypoints, repositories, message stores, or `node:*` modules.
 - App server entrypoints must not import React views or app client modules.
 - Server-side code must not import `clientAppContract`, and client-side code must not import `serverAppContract`.
