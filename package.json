@@ -19,9 +19,10 @@
     "start": "tsx src/server/index.ts",
     "build": "npm run typecheck && npm run build:client",
     "build:client": "vite build",
-    "typecheck": "npm run typecheck:client && npm run typecheck:server",
+    "typecheck": "npm run typecheck:client && npm run typecheck:server && npm run typecheck:packages",
     "typecheck:client": "tsc -p tsconfig.json --noEmit",
     "typecheck:server": "tsc -p tsconfig.server.json --noEmit",
+    "typecheck:packages": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "test:production": "npm run build && vitest run tests/server/production.test.ts",
     "test:watch": "vitest"

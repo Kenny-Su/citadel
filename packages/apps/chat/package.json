@@ -9,6 +9,9 @@
     "./server": "./server.ts",
     "./validation": "./validation.ts"
   },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
   "dependencies": {
     "@citadel/platform": "0.1.0",
     "nanoid": "^5.1.5"

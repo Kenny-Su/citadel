@@ -69,6 +69,12 @@ function jsonSource<T>(path: string) {
   return JSON.parse(source(path)) as T;
 }
 
+type PackageTsconfig = {
+  extends?: string;
+  include?: string[];
+  compilerOptions?: Record<string, unknown>;
+};
+
 function appImplementationPath(appId: (typeof appIds)[number], fileName: string) {
   return `packages/apps/${appId}/src/${fileName}`;
 }
@@ -236,11 +242,19 @@ describe('app package import boundaries', () => {
   });
 
   it('declares workspace package exports for platform and bundled apps', () => {
-    const rootPackage = jsonSource<{ workspaces: string[] }>('package.json');
-    const platformPackage = jsonSource<{ name: string; exports: Record<string, string> }>(
+    const rootPackage = jsonSource<{ workspaces: string[]; scripts: Record<string, string> }>('package.json');
+    const platformPackage = jsonSource<{
+      name: string;
+      exports: Record<string, string>;
+      scripts: Record<string, string>;
+    }>(
       'packages/platform/package.json'
     );
 
+    expect(rootPackage.scripts.typecheck).toBe(
+      'npm run typecheck:client && npm run typecheck:server && npm run typecheck:packages'
+    );
+    expect(rootPackage.scripts['typecheck:packages']).toBe('npm run typecheck --workspaces --if-present');
     expect(rootPackage.workspaces).toEqual([
       'packages/platform',
       'packages/apps/chat',
@@ -256,11 +270,13 @@ describe('app package import boundaries', () => {
       './server': './server.ts',
       './validation': './validation.ts'
     });
+    expect(platformPackage.scripts.typecheck).toBe('tsc -p tsconfig.json --noEmit');
 
     for (const appId of appIds) {
       const appPackage = jsonSource<{
         name: string;
         exports: Record<string, string>;
+        scripts: Record<string, string>;
         dependencies?: Record<string, string>;
       }>(`packages/apps/${appId}/package.json`);
 
@@ -279,7 +295,31 @@ describe('app package import boundaries', () => {
             './server': './server.ts'
           }
       );
+      expect(appPackage.scripts.typecheck).toBe('tsc -p tsconfig.json --noEmit');
       expect(appPackage.dependencies?.['@citadel/platform']).toBe('0.1.0');
+    }
+  });
+
+  it('checks each package through a package-local no-emit tsconfig', () => {
+    const packageBase = jsonSource<PackageTsconfig>('tsconfig.package-base.json');
+
+    expect(packageBase.compilerOptions?.noEmit).toBe(true);
+    expect(packageBase.compilerOptions).not.toHaveProperty('declaration');
+    expect(packageBase.compilerOptions).not.toHaveProperty('emitDeclarationOnly');
+    expect(packageBase.compilerOptions).not.toHaveProperty('outDir');
+
+    const platformConfig = jsonSource<PackageTsconfig>('packages/platform/tsconfig.json');
+    expect(platformConfig.extends).toBe('../../tsconfig.package-base.json');
+    expect(platformConfig.include).toEqual(['*.ts', 'src/**/*.ts']);
+    expect(platformConfig.include?.join(' ')).not.toMatch(/\.\.|tests|packages\//);
+
+    for (const appId of appIds) {
+      const appConfig = jsonSource<PackageTsconfig>(`packages/apps/${appId}/tsconfig.json`);
+
+      expect(appConfig.extends).toBe('../../../tsconfig.package-base.json');
+      expect(appConfig.include).toEqual(['*.ts', 'src/**/*.ts', 'src/**/*.tsx']);
+      expect(appConfig.include?.join(' ')).not.toMatch(/\.\.|tests|packages\//);
+      expect(appConfig.compilerOptions).toBeUndefined();
     }
   });
 

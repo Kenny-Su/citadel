@@ -11,6 +11,9 @@
     "./server": "./server.ts",
     "./validation": "./validation.ts"
   },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
   "peerDependencies": {
     "react": "^19.1.0"
   },
