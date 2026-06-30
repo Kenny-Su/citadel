@@ -8,6 +8,10 @@ function source(path: string) {
   return readFileSync(join(process.cwd(), path), 'utf8');
 }
 
+function jsonSource<T>(path: string) {
+  return JSON.parse(source(path)) as T;
+}
+
 describe('app package import boundaries', () => {
   it('keeps platform core free of concrete app imports', () => {
     expect(source('src/platform/server.ts')).not.toContain('../apps/');
@@ -160,10 +164,84 @@ describe('app package import boundaries', () => {
       '@citadel/apps/chess/server',
       '@citadel/apps/snake',
       '@citadel/apps/snake/client',
-      '@citadel/apps/snake/server'
+      '@citadel/apps/snake/server',
+      '@citadel/app-chat',
+      '@citadel/app-chat/client',
+      '@citadel/app-chat/server',
+      '@citadel/app-chess',
+      '@citadel/app-chess/client',
+      '@citadel/app-chess/server',
+      '@citadel/app-snake',
+      '@citadel/app-snake/client',
+      '@citadel/app-snake/server'
     ]) {
       expect(tsconfig).toContain(alias);
       expect(viteConfig).toContain(alias);
+    }
+
+    expect(tsconfig).toContain('packages/platform/app.ts');
+    expect(tsconfig).toContain('packages/apps/chat/index.ts');
+    expect(viteConfig).toContain('./packages/platform/app.ts');
+    expect(viteConfig).toContain('./packages/apps/chat/index.ts');
+  });
+
+  it('declares workspace package shells for platform and bundled apps', () => {
+    const rootPackage = jsonSource<{ workspaces: string[] }>('package.json');
+    const platformPackage = jsonSource<{ name: string; exports: Record<string, string> }>(
+      'packages/platform/package.json'
+    );
+
+    expect(rootPackage.workspaces).toEqual([
+      'packages/platform',
+      'packages/apps/chat',
+      'packages/apps/chess',
+      'packages/apps/snake'
+    ]);
+    expect(platformPackage.name).toBe('@citadel/platform');
+    expect(platformPackage.exports).toEqual({
+      './app': './app.ts',
+      './client': './client.ts',
+      './server-app': './server-app.ts',
+      './persistence': './persistence.ts'
+    });
+
+    for (const appId of appIds) {
+      const appPackage = jsonSource<{
+        name: string;
+        exports: Record<string, string>;
+        dependencies?: Record<string, string>;
+      }>(`packages/apps/${appId}/package.json`);
+
+      expect(appPackage.name).toBe(`@citadel/app-${appId}`);
+      expect(appPackage.exports).toEqual({
+        '.': './index.ts',
+        './client': './client.ts',
+        './server': './server.ts'
+      });
+      expect(appPackage.dependencies?.['@citadel/platform']).toBe('0.1.0');
+    }
+  });
+
+  it('keeps workspace package entrypoints as thin source re-export shims', () => {
+    expect(source('packages/platform/app.ts').trim()).toBe("export * from '../../src/platform/app.js';");
+    expect(source('packages/platform/client.ts').trim()).toBe("export * from '../../src/platform/client.js';");
+    expect(source('packages/platform/server-app.ts').trim()).toBe(
+      "export * from '../../src/platform/serverApp.js';"
+    );
+    expect(source('packages/platform/persistence.ts').trim()).toBe(
+      "export * from '../../src/platform/persistence.js';"
+    );
+
+    for (const appId of appIds) {
+      expect(source(`packages/apps/${appId}/index.ts`).trim()).toBe(
+        `export * from '../../../src/apps/${appId}/index.js';`
+      );
+      expect(source(`packages/apps/${appId}/client.ts`).trim()).toBe(
+        `export * from '../../../src/apps/${appId}/client.js';`
+      );
+      expect(source(`packages/apps/${appId}/server.ts`).trim()).toBe(
+        `export * from '../../../src/apps/${appId}/serverEntry.js';`
+      );
     }
   });
 });

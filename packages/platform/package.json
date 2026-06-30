@@ -1,0 +1,20 @@
+{
+  "name": "@citadel/platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./app": "./app.ts",
+    "./client": "./client.ts",
+    "./server-app": "./server-app.ts",
+    "./persistence": "./persistence.ts"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}
