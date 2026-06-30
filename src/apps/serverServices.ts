@@ -1,5 +1,1 @@
-import type { CitadelDatabase } from '../persistence/sqlite.js';
-
-export type ServerAppServices = {
-  database: CitadelDatabase;
-};
+export type { ServerAppServices } from '../platform/serverApp.js';

@@ -1,5 +1,5 @@
 import { MESSAGE_MAX_LENGTH } from './shared.js';
-import type { ValidationResult } from '../../platform/validation.js';
+import type { ValidationResult } from '../../platform/app.js';
 
 export function validateMessageBody(input: unknown): ValidationResult {
   if (typeof input !== 'string') {

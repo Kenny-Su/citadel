@@ -12,6 +12,10 @@ describe('app package import boundaries', () => {
   it('keeps platform core free of concrete app imports', () => {
     expect(source('src/platform/server.ts')).not.toContain('../apps/');
     expect(source('src/platform/appContract.ts')).not.toContain('../apps/');
+    expect(source('src/platform/app.ts')).not.toContain('../apps/');
+    expect(source('src/platform/client.ts')).not.toContain('../apps/');
+    expect(source('src/platform/serverApp.ts')).not.toContain('../apps/');
+    expect(source('src/platform/persistence.ts')).not.toContain('../apps/');
     expect(source('src/platform/appContract.ts')).not.toContain('react');
   });
 
@@ -82,7 +86,7 @@ describe('app package import boundaries', () => {
   it('keeps shared server services platform-only', () => {
     const services = source('src/apps/serverServices.ts');
 
-    expect(services).toContain('../persistence/sqlite.js');
+    expect(services).toContain('../platform/serverApp.js');
     expect(services).not.toMatch(/AppId|chat|chess|messageStore|Repository|RateLimit|enabledAppIds/);
   });
 
@@ -97,5 +101,38 @@ describe('app package import boundaries', () => {
     expect(source('src/client/appRegistry.tsx')).not.toContain('serverAppContract');
     expect(source('src/apps/serverRegistry.ts')).toContain('../platform/serverAppContract.js');
     expect(source('src/apps/serverRegistry.ts')).not.toContain('clientAppContract');
+  });
+
+  it('keeps app code on platform facade imports', () => {
+    const forbiddenDeepAppImports =
+      /\.\.\/\.\.\/(?:shared\/platform|platform\/(?:appContract|clientAppContract|serverAppContract|validation)|persistence\/sqlite)\.js?/;
+
+    for (const appId of appIds) {
+      const manifest = source(`src/apps/${appId}/manifest.ts`);
+      const client = source(`src/apps/${appId}/client.tsx`);
+      const view = source(`src/apps/${appId}/${appId[0].toUpperCase()}${appId.slice(1)}View.tsx`);
+      const server = source(`src/apps/${appId}/server.ts`);
+      const serverEntry = source(`src/apps/${appId}/serverEntry.ts`);
+
+      expect(manifest).toContain('../../platform/app.js');
+      expect(manifest).not.toMatch(forbiddenDeepAppImports);
+      expect(client).toContain('../../platform/client.js');
+      expect(client).not.toMatch(forbiddenDeepAppImports);
+      expect(view).toContain('../../platform/client.js');
+      expect(view).not.toMatch(forbiddenDeepAppImports);
+      expect(server).toContain('../../platform/');
+      expect(server).not.toMatch(forbiddenDeepAppImports);
+      expect(serverEntry).toContain('../../platform/serverApp.js');
+      expect(serverEntry).not.toMatch(forbiddenDeepAppImports);
+      expect(serverEntry).not.toContain('../serverServices.js');
+    }
+
+    expect(source('src/apps/chat/shared.ts')).toContain('../../platform/app.js');
+    expect(source('src/apps/chat/shared.ts')).not.toMatch(forbiddenDeepAppImports);
+    expect(source('src/apps/chat/validation.ts')).toContain('../../platform/app.js');
+    expect(source('src/apps/chat/validation.ts')).not.toMatch(forbiddenDeepAppImports);
+    expect(source('src/apps/chat/messageStore.ts')).toContain('../../platform/app.js');
+    expect(source('src/apps/chat/messageStore.ts')).toContain('../../platform/persistence.js');
+    expect(source('src/apps/chat/messageStore.ts')).not.toMatch(forbiddenDeepAppImports);
   });
 });

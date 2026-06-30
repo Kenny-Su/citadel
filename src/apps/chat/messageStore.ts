@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
-import { DEFAULT_SPACE_ID } from '../../shared/platform.js';
-import { openCitadelDatabase } from '../../persistence/sqlite.js';
+import { DEFAULT_SPACE_ID } from '../../platform/app.js';
+import { openCitadelDatabase } from '../../platform/persistence.js';
 import { MESSAGE_HISTORY_LIMIT, type ChatMessage } from './shared.js';
 
 export type ChatRepository = {

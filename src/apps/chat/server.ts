@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import type { ServerAppContext, ServerAppModule } from '../../platform/serverAppContract.js';
+import type { ServerAppContext, ServerAppModule } from '../../platform/serverApp.js';
 import { MESSAGE_HISTORY_LIMIT, type ChatMessage, type SendMessagePayload } from './shared.js';
 import { validateMessageBody } from './validation.js';
 import type { ChatRepository } from './messageStore.js';

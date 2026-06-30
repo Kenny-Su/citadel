@@ -1,4 +1,4 @@
-import type { AppManifest } from '../../platform/appContract.js';
+import type { AppManifest } from '../../platform/app.js';
 
 export const chatManifest = {
   appId: 'chat',

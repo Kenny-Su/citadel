@@ -1,4 +1,4 @@
-import type { ClientAppModule } from '../../platform/clientAppContract.js';
+import type { ClientAppModule } from '../../platform/client.js';
 import type { SnakeState } from './shared.js';
 import { SnakeView } from './SnakeView.js';
 import { snakeManifest } from './manifest.js';

@@ -1,4 +1,4 @@
-import type { Participant } from '../../shared/platform.js';
+import type { Participant } from '../../platform/app.js';
 
 export const MESSAGE_MAX_LENGTH = 500;
 export const MESSAGE_HISTORY_LIMIT = 100;

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppViewProps } from '../../platform/clientAppContract.js';
+import type { AppViewProps } from '../../platform/client.js';
 import type { SnakeDirection, SnakeState } from './shared.js';
 
 export function SnakeView({

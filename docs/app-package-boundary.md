@@ -18,6 +18,13 @@ Platform contracts are split by environment:
 - `src/platform/clientAppContract.ts`: browser view contracts such as `AppViewProps` and `ClientAppModule`.
 - `src/platform/serverAppContract.ts`: server runtime contracts such as `ServerAppContext`, `ServerAppModule`, and `ServerAppBundle`.
 
+Bundled apps import platform APIs through small app-facing facades. These are the future package-facing platform exports:
+
+- `src/platform/app.ts`: neutral app metadata, app ids, participants, space helpers, and shared platform payload types.
+- `src/platform/client.ts`: browser app contracts.
+- `src/platform/serverApp.ts`: server app contracts and shared platform server services.
+- `src/platform/persistence.ts`: persistence APIs intentionally available to app repositories.
+
 Shared server app services stay platform-only in `src/apps/serverServices.ts`. App-specific server options, such as repository injection or chat rate limits, belong to each app server entrypoint or to the bundled registry adapter.
 
 For example, a future package can map these to exports like:
@@ -36,6 +43,7 @@ For example, a future package can map these to exports like:
 - The client registry imports app client entrypoints plus neutral shared types.
 - The server registry imports neutral manifests plus app server entrypoints.
 - Neutral app indexes do not export client modules, server bundles, repositories, repository resolvers, or implementation factories.
+- App code imports platform contracts, shared platform helpers, and persistence APIs through the platform facades rather than deep platform, shared, or persistence modules.
 - App client code must not import server entrypoints, repositories, message stores, or `node:*` modules.
 - App server entrypoints must not import React views or app client modules.
 - Server-side code must not import `clientAppContract`, and client-side code must not import `serverAppContract`.

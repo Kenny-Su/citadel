@@ -1,5 +1,4 @@
-import type { ServerAppBundle } from '../../platform/serverAppContract.js';
-import type { ServerAppServices } from '../serverServices.js';
+import type { ServerAppBundle, ServerAppServices } from '../../platform/serverApp.js';
 import { chatManifest } from './manifest.js';
 import { createChatRepository, type ChatRepository, type MessageStore } from './messageStore.js';
 import { createChatApp } from './server.js';

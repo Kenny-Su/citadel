@@ -1,5 +1,4 @@
-import type { ServerAppBundle } from '../../platform/serverAppContract.js';
-import type { ServerAppServices } from '../serverServices.js';
+import type { ServerAppBundle, ServerAppServices } from '../../platform/serverApp.js';
 import { chessManifest } from './manifest.js';
 import { createChessRepository, type ChessRepository } from './repository.js';
 import { createChessApp } from './server.js';
