@@ -37,7 +37,7 @@ Workspace package shells exist under `packages/` as the scaffold for the source 
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` export `.`, `./client`, and `./server`.
 
 Temporary `src/platform/*` files remain as compatibility shims while the server/client shell code migrates to package imports.
-Snake is the first source-owning app package: its implementation lives under `packages/apps/snake/src`, with `src/apps/snake/*` left as temporary compatibility shims.
+Chat and Snake are source-owning app packages: their implementations live under `packages/apps/<app>/src`, with `src/apps/<app>/*` left as temporary compatibility shims.
 
 Shared server app services stay platform-only in `src/apps/serverServices.ts`. App-specific server options, such as repository injection or chat rate limits, belong to each app server entrypoint or to the bundled registry adapter.
 

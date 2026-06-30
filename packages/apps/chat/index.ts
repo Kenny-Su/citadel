@@ -1,1 +1,1 @@
-export * from '../../../src/apps/chat/index.js';
+export * from './src/index.js';
