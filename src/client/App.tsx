@@ -11,7 +11,13 @@ import {
   isAppId,
   normalizeSpaceId
 } from '../shared/platform';
-import { clientApps, filterClientApps, isKnownAppEvent, type ClientAppModule } from './appRegistry';
+import {
+  clientApps,
+  createClientAppsFromManifests,
+  filterClientApps,
+  isKnownAppEvent,
+  type ClientAppModule
+} from './appRegistry';
 
 const socket = io({
   autoConnect: false
@@ -63,7 +69,8 @@ function syncSpacePath(route: RouteState, mode: 'push' | 'replace' = 'push') {
 }
 
 function normalizeRouteForApps(route: RouteState, apps: ClientAppModule<any>[]): RouteState {
-  const fallbackAppId = apps[0]?.appId ?? 'chat';
+  const fallbackApp = apps[0];
+  const fallbackAppId = fallbackApp?.appId ?? 'chat';
 
   if (apps.some((app) => app.appId === route.appId)) {
     return route;
@@ -71,7 +78,7 @@ function normalizeRouteForApps(route: RouteState, apps: ClientAppModule<any>[]):
 
   return {
     appId: fallbackAppId,
-    spaceId: route.spaceId
+    spaceId: route.spaceId === DEFAULT_SPACE_ID ? (fallbackApp?.defaultSpaceId ?? DEFAULT_SPACE_ID) : route.spaceId
   };
 }
 
@@ -228,7 +235,8 @@ export function App() {
       try {
         const response = await fetch('/config');
         const config = (await response.json()) as ClientConfig;
-        const apps = filterClientApps(getConfigAppIds(config));
+        const appIds = getConfigAppIds(config);
+        const apps = createClientAppsFromManifests(config.appManifests, appIds) ?? filterClientApps(appIds);
 
         if (!active) {
           return;

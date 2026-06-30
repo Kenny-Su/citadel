@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMockSocket, resetMockSocket, triggerSocketEvent } from '../test-utils/render-app';
 import { App } from '../../src/client/App';
@@ -30,10 +30,12 @@ describe('platform app shell', () => {
     }
   ];
 
-  function mockEnabledApps(apps = allApps, appManifests: unknown[] = allAppManifests) {
+  function mockEnabledApps(apps = allApps, appManifests: unknown[] | undefined = allAppManifests) {
+    const body = appManifests === undefined ? { apps } : { apps, appManifests };
+
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(JSON.stringify({ apps, appManifests }), {
+      vi.fn(async () => new Response(JSON.stringify(body), {
         headers: { 'content-type': 'application/json' }
       }))
     );
@@ -228,8 +230,66 @@ describe('platform app shell', () => {
     expect(screen.queryByRole('button', { name: 'Snake' })).not.toBeInTheDocument();
   });
 
-  it('renders enabled app tabs when runtime config includes manifests', async () => {
-    mockEnabledApps(['chat', 'snake'], [allAppManifests[0], allAppManifests[2]]);
+  it('renders enabled app tabs from manifest metadata in manifest order', async () => {
+    mockEnabledApps(['chat', 'snake'], [
+      {
+        ...allAppManifests[2],
+        label: 'Serpent',
+        defaultSpaceId: 'arena'
+      },
+      {
+        ...allAppManifests[0],
+        label: 'Messages',
+        defaultSpaceId: 'lobby'
+      }
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: 'Serpent' })).toBeInTheDocument();
+    const appTabs = within(screen.getByRole('navigation', { name: 'Apps' })).getAllByRole('button');
+    expect(appTabs.map((button) => button.textContent)).toEqual(['Serpent', 'Messages']);
+    expect(screen.queryByRole('button', { name: 'Chess' })).not.toBeInTheDocument();
+  });
+
+  it('uses manifest default space when redirecting from a default route', async () => {
+    mockEnabledApps(['snake'], [
+      {
+        ...allAppManifests[2],
+        defaultSpaceId: 'arena'
+      }
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Snake' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/apps/snake/spaces/arena');
+    });
+  });
+
+  it('falls back to local metadata when manifests are invalid', async () => {
+    mockEnabledApps(['chat'], [
+      {
+        appId: 'chat',
+        label: 42,
+        defaultSpaceId: 'lobby'
+      },
+      {
+        appId: 'unknown',
+        label: 'Unknown',
+        defaultSpaceId: 'void'
+      }
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: 'Chat' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Messages' })).not.toBeInTheDocument();
+  });
+
+  it('keeps apps filtering behavior when manifests are absent', async () => {
+    mockEnabledApps(['chat', 'snake'], undefined);
 
     render(<App />);
 
