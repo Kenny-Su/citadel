@@ -4,7 +4,7 @@ import {
   bundledAppManifests,
   getBundledAppManifest,
   orderBundledAppEntries
-} from '../../src/apps/catalog.js';
+} from '../../src/bundledApps/catalog.js';
 
 describe('bundled app catalog', () => {
   it('owns the canonical bundled app order', () => {

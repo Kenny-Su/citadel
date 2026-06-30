@@ -110,7 +110,7 @@ describe('app package import boundaries', () => {
   });
 
   it('keeps server registry wired only to app server entrypoints and neutral manifests', () => {
-    const registry = source('src/apps/serverRegistry.ts');
+    const registry = source('src/bundledApps/serverRegistry.ts');
 
     expect(registry).toContain("from '@citadel/apps/catalog'");
     for (const appId of appIds) {
@@ -143,7 +143,7 @@ describe('app package import boundaries', () => {
   });
 
   it('keeps shared server services platform-only', () => {
-    const services = source('src/apps/serverServices.ts');
+    const services = source('src/bundledApps/serverServices.ts');
 
     expect(services).toContain('../platform/serverApp.js');
     expect(services).not.toMatch(/AppId|chat|chess|messageStore|Repository|RateLimit|enabledAppIds/);
@@ -160,8 +160,8 @@ describe('app package import boundaries', () => {
   it('keeps registries on environment-specific platform contracts', () => {
     expect(source('src/client/appRegistry.tsx')).toContain('../platform/clientAppContract');
     expect(source('src/client/appRegistry.tsx')).not.toContain('serverAppContract');
-    expect(source('src/apps/serverRegistry.ts')).toContain('../platform/serverAppContract.js');
-    expect(source('src/apps/serverRegistry.ts')).not.toContain('clientAppContract');
+    expect(source('src/bundledApps/serverRegistry.ts')).toContain('../platform/serverAppContract.js');
+    expect(source('src/bundledApps/serverRegistry.ts')).not.toContain('clientAppContract');
   });
 
   it('keeps app code on platform facade imports', () => {
@@ -235,8 +235,10 @@ describe('app package import boundaries', () => {
     }
 
     expect(tsconfig).toContain('packages/platform/app.ts');
+    expect(tsconfig).toContain('src/bundledApps/catalog.ts');
     expect(tsconfig).toContain('packages/apps/chat/index.ts');
     expect(viteConfig).toContain('./packages/platform/app.ts');
+    expect(viteConfig).toContain('./src/bundledApps/catalog.ts');
     expect(viteConfig).toContain('./packages/apps/chat/index.ts');
   });
 
@@ -320,5 +322,25 @@ describe('app package import boundaries', () => {
         );
       }
     }
+  });
+
+  it('keeps src app registry files as thin compatibility shims', () => {
+    expect(source('src/apps/catalog.ts').trim()).toBe("export * from '../bundledApps/catalog.js';");
+    expect(source('src/apps/serverRegistry.ts').trim()).toBe("export * from '../bundledApps/serverRegistry.js';");
+    expect(source('src/apps/serverServices.ts').trim()).toBe(
+      "export type { ServerAppServices } from '../bundledApps/serverServices.js';"
+    );
+  });
+
+  it('keeps bundled app assembly on public app package surfaces', () => {
+    const catalog = source('src/bundledApps/catalog.ts');
+    const serverRegistry = source('src/bundledApps/serverRegistry.ts');
+
+    for (const appId of appIds) {
+      expect(catalog).toContain(`from '@citadel/apps/${appId}'`);
+      expect(serverRegistry).toContain(`from '@citadel/apps/${appId}/server'`);
+    }
+    expect(catalog).not.toMatch(/(?:\.\.\/apps|src\/apps|packages\/apps)\/(?:chat|chess|snake)\//);
+    expect(serverRegistry).not.toMatch(/(?:\.\.\/apps|src\/apps|packages\/apps)\/(?:chat|chess|snake)\//);
   });
 });

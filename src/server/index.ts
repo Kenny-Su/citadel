@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPlatformServer } from '../platform/server.js';
-import { createBundledServerApps, filterAppManifests, getEnabledAppIds } from '../apps/serverRegistry.js';
+import { createBundledServerApps, filterAppManifests, getEnabledAppIds } from '../bundledApps/serverRegistry.js';
 import { openCitadelDatabase } from '../persistence/sqlite.js';
 
 const PORT = Number(process.env.PORT ?? 3001);

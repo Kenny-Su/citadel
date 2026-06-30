@@ -10,8 +10,8 @@ import {
   filterServerAppBundles,
   getEnabledAppIds,
   resolveBundledRepositories
-} from '../../src/apps/serverRegistry.js';
-import { bundledAppIds } from '../../src/apps/catalog.js';
+} from '../../src/bundledApps/serverRegistry.js';
+import { bundledAppIds } from '../../src/bundledApps/catalog.js';
 import { openCitadelDatabase, type CitadelDatabase } from '../../src/persistence/sqlite.js';
 import type { ChatRepository } from '../../src/apps/chat/serverEntry.js';
 import type { ChessRepository } from '../../src/apps/chess/serverEntry.js';

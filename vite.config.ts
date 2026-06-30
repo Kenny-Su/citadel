@@ -23,7 +23,7 @@ export default defineConfig({
       { find: '@citadel/platform/persistence', replacement: fileURLToPath(new URL('./packages/platform/persistence.ts', import.meta.url)) },
       { find: '@citadel/platform/client', replacement: fileURLToPath(new URL('./packages/platform/client.ts', import.meta.url)) },
       { find: '@citadel/platform/app', replacement: fileURLToPath(new URL('./packages/platform/app.ts', import.meta.url)) },
-      { find: '@citadel/apps/catalog', replacement: fileURLToPath(new URL('./src/apps/catalog.ts', import.meta.url)) },
+      { find: '@citadel/apps/catalog', replacement: fileURLToPath(new URL('./src/bundledApps/catalog.ts', import.meta.url)) },
       { find: '@citadel/apps/chat', replacement: fileURLToPath(new URL('./packages/apps/chat/index.ts', import.meta.url)) },
       { find: '@citadel/apps/chess', replacement: fileURLToPath(new URL('./packages/apps/chess/index.ts', import.meta.url)) },
       { find: '@citadel/apps/snake', replacement: fileURLToPath(new URL('./packages/apps/snake/index.ts', import.meta.url)) },

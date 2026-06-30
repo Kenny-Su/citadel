@@ -18,7 +18,7 @@
       "@citadel/platform/client": ["packages/platform/client.ts"],
       "@citadel/platform/server-app": ["packages/platform/server-app.ts"],
       "@citadel/platform/persistence": ["packages/platform/persistence.ts"],
-      "@citadel/apps/catalog": ["src/apps/catalog.ts"],
+      "@citadel/apps/catalog": ["src/bundledApps/catalog.ts"],
       "@citadel/apps/chat": ["packages/apps/chat/index.ts"],
       "@citadel/apps/chat/client": ["packages/apps/chat/client.ts"],
       "@citadel/apps/chat/server": ["packages/apps/chat/server.ts"],

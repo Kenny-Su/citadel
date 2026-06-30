@@ -6,7 +6,7 @@ import {
   createBundledServerApps,
   filterAppManifests,
   resolveBundledRepositories
-} from '../apps/serverRegistry.js';
+} from '../bundledApps/serverRegistry.js';
 import { openCitadelDatabase, type CitadelDatabase } from '../persistence/sqlite.js';
 
 export type ChatServerOptions = Omit<PlatformServerOptions, 'apps'> & {
