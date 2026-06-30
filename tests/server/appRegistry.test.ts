@@ -2,7 +2,12 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createBundledServerApps, resolveBundledRepositories } from '../../src/apps/serverRegistry.js';
+import {
+  createBundledServerApps,
+  filterServerAppBundles,
+  getEnabledAppIds,
+  resolveBundledRepositories
+} from '../../src/apps/serverRegistry.js';
 import { openCitadelDatabase, type CitadelDatabase } from '../../src/persistence/sqlite.js';
 import type { ChatRepository } from '../../src/apps/chat/index.js';
 import type { ChessRepository } from '../../src/apps/chess/index.js';
@@ -25,6 +30,29 @@ describe('bundled server app registry', () => {
     const apps = createBundledServerApps({ database });
 
     expect(apps.map((app) => app.appId)).toEqual(['chat', 'chess', 'snake']);
+  });
+
+  it('parses enabled app configuration with defaults and fallback', () => {
+    expect(getEnabledAppIds()).toEqual(['chat', 'chess', 'snake']);
+    expect(getEnabledAppIds(' chess, chat, chess, unknown, snake ')).toEqual([
+      'chess',
+      'chat',
+      'snake'
+    ]);
+    expect(getEnabledAppIds('unknown, nope')).toEqual(['chat', 'chess', 'snake']);
+  });
+
+  it('filters server app bundles by enabled app ids', () => {
+    expect(filterServerAppBundles(['snake', 'chat']).map((bundle) => bundle.appId)).toEqual([
+      'snake',
+      'chat'
+    ]);
+  });
+
+  it('creates only enabled server modules', () => {
+    const apps = createBundledServerApps({ database, enabledAppIds: ['snake', 'chat'] });
+
+    expect(apps.map((app) => app.appId)).toEqual(['snake', 'chat']);
   });
 
   it('uses injected repositories when resolving bundled services', () => {

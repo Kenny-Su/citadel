@@ -187,6 +187,12 @@ export function createPlatformServer(options: PlatformServerOptions) {
     });
   });
 
+  app.get('/config', (_request, response) => {
+    response.json({
+      apps: [...modules.keys()]
+    });
+  });
+
   if (options.staticDir) {
     const indexPath = join(options.staticDir, 'index.html');
 

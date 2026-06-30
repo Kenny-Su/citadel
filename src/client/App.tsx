@@ -11,7 +11,7 @@ import {
   isAppId,
   normalizeSpaceId
 } from '../shared/platform';
-import { appById, clientApps, isKnownAppEvent } from './appRegistry';
+import { clientApps, filterClientApps, isKnownAppEvent, type ClientAppModule } from './appRegistry';
 
 const socket = io({
   autoConnect: false
@@ -23,6 +23,10 @@ const GUEST_ID_STORAGE_KEY = 'citadel.guestId';
 type RouteState = {
   appId: AppId;
   spaceId: string;
+};
+
+type ClientConfig = {
+  apps?: unknown;
 };
 
 function parseRoute(): RouteState {
@@ -55,6 +59,39 @@ function syncSpacePath(route: RouteState, mode: 'push' | 'replace' = 'push') {
   }
 
   window.history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', path);
+}
+
+function normalizeRouteForApps(route: RouteState, apps: ClientAppModule<any>[]): RouteState {
+  const fallbackAppId = apps[0]?.appId ?? 'chat';
+
+  if (apps.some((app) => app.appId === route.appId)) {
+    return route;
+  }
+
+  return {
+    appId: fallbackAppId,
+    spaceId: route.spaceId
+  };
+}
+
+function getConfigAppIds(config: ClientConfig): AppId[] {
+  if (!Array.isArray(config.apps)) {
+    return clientApps.map((app) => app.appId);
+  }
+
+  const appIds: AppId[] = [];
+  const seen = new Set<AppId>();
+
+  for (const appId of config.apps) {
+    if (!isAppId(appId) || seen.has(appId)) {
+      continue;
+    }
+
+    appIds.push(appId);
+    seen.add(appId);
+  }
+
+  return appIds.length > 0 ? appIds : clientApps.map((app) => app.appId);
 }
 
 function normalizeDisplayName(input: unknown) {
@@ -153,6 +190,7 @@ async function copyText(value: string) {
 export function App() {
   const initialDisplayName = React.useMemo(() => loadStoredDisplayName(), []);
   const guestId = React.useMemo(() => loadStoredGuestId(), []);
+  const [availableApps, setAvailableApps] = React.useState<ClientAppModule<any>[] | null>(null);
   const [route, setRoute] = React.useState(parseRoute);
   const [spaceDraft, setSpaceDraft] = React.useState(route.spaceId);
   const [displayName, setDisplayName] = React.useState(initialDisplayName);
@@ -162,7 +200,8 @@ export function App() {
   const [appState, setAppState] = React.useState<unknown>(null);
   const [notice, setNotice] = React.useState('');
 
-  const currentApp = appById.get(route.appId) ?? clientApps[0];
+  const visibleApps = availableApps ?? [];
+  const currentApp = visibleApps.find((app) => app.appId === route.appId) ?? visibleApps[0] ?? clientApps[0];
   const currentParticipant = participants.find((participant) => participant.id === guestId) ?? {
     id: guestId,
     socketId: socket.id,
@@ -170,8 +209,6 @@ export function App() {
   };
 
   React.useEffect(() => {
-    syncSpacePath(route, 'replace');
-
     function handlePopState() {
       setRoute(parseRoute());
     }
@@ -182,6 +219,61 @@ export function App() {
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
+
+  React.useEffect(() => {
+    let active = true;
+
+    async function loadConfig() {
+      try {
+        const response = await fetch('/config');
+        const config = (await response.json()) as ClientConfig;
+        const apps = filterClientApps(getConfigAppIds(config));
+
+        if (!active) {
+          return;
+        }
+
+        setAvailableApps(apps);
+        setRoute((currentRoute) => {
+          const nextRoute = normalizeRouteForApps(currentRoute, apps);
+          syncSpacePath(nextRoute, 'replace');
+          return nextRoute;
+        });
+      } catch {
+        if (!active) {
+          return;
+        }
+
+        setAvailableApps(clientApps);
+        setRoute((currentRoute) => {
+          const nextRoute = normalizeRouteForApps(currentRoute, clientApps);
+          syncSpacePath(nextRoute, 'replace');
+          return nextRoute;
+        });
+      }
+    }
+
+    void loadConfig();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!availableApps) {
+      return;
+    }
+
+    const nextRoute = normalizeRouteForApps(route, availableApps);
+
+    if (nextRoute.appId === route.appId && nextRoute.spaceId === route.spaceId) {
+      return;
+    }
+
+    setRoute(nextRoute);
+    syncSpacePath(nextRoute, 'replace');
+  }, [availableApps, route]);
 
   React.useEffect(() => {
     setSpaceDraft(route.spaceId);
@@ -237,6 +329,10 @@ export function App() {
   }, [route.appId, route.spaceId]);
 
   React.useEffect(() => {
+    if (!availableApps) {
+      return;
+    }
+
     if (!joinedName) {
       return;
     }
@@ -252,7 +348,7 @@ export function App() {
       name: joinedName,
       spaceId: route.spaceId
     });
-  }, [connected, guestId, joinedName, route.appId, route.spaceId]);
+  }, [availableApps, connected, guestId, joinedName, route.appId, route.spaceId]);
 
   function joinSpace(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -294,9 +390,15 @@ export function App() {
   }
 
   function switchApp(appId: AppId) {
+    const nextApp = visibleApps.find((app) => app.appId === appId);
+
+    if (!nextApp) {
+      return;
+    }
+
     const nextRoute = {
       appId,
-      spaceId: route.spaceId || appById.get(appId)?.defaultSpaceId || DEFAULT_SPACE_ID
+      spaceId: route.spaceId || nextApp.defaultSpaceId || DEFAULT_SPACE_ID
     };
 
     setNotice('');
@@ -336,7 +438,7 @@ export function App() {
           </div>
           <div className="header-actions">
             <nav className="app-tabs" aria-label="Apps">
-              {clientApps.map((app) => (
+              {visibleApps.map((app) => (
                 <button
                   className={app.appId === route.appId ? 'active' : ''}
                   key={app.appId}
@@ -370,7 +472,9 @@ export function App() {
           </div>
         </header>
 
-        {!joinedName ? (
+        {!availableApps ? (
+          <div className="empty-state">Loading apps...</div>
+        ) : !joinedName ? (
           <form className="join-card" onSubmit={joinSpace}>
             <label htmlFor="displayName">Choose a display name</label>
             <div className="join-row">

@@ -5,10 +5,21 @@ import { App } from '../../src/client/App';
 
 describe('platform app shell', () => {
   const mockSocket = getMockSocket();
+  const allApps = ['chat', 'chess', 'snake'];
+
+  function mockEnabledApps(apps = allApps) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ apps }), {
+        headers: { 'content-type': 'application/json' }
+      }))
+    );
+  }
 
   beforeEach(() => {
     window.localStorage.clear();
     resetMockSocket();
+    mockEnabledApps();
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: {
@@ -22,30 +33,33 @@ describe('platform app shell', () => {
     cleanup();
     window.localStorage.clear();
     window.history.replaceState(null, '', '/');
+    vi.unstubAllGlobals();
   });
 
-  it('renders the join form and participant panel', () => {
+  it('renders the join form and participant panel', async () => {
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: 'Chat' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Choose a display name')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Chat' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Choose a display name')).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: 'Participants' })).toBeInTheDocument();
   });
 
-  it('normalizes root and legacy room routes to the chat app route', () => {
+  it('normalizes root and legacy room routes to the chat app route', async () => {
     window.history.replaceState(null, '', '/rooms/design');
 
     render(<App />);
 
-    expect(screen.getByText('#design')).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/apps/chat/spaces/design');
+    expect(await screen.findByText('#design')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/apps/chat/spaces/design');
+    });
   });
 
-  it('switches apps and spaces through neutral routes', () => {
+  it('switches apps and spaces through neutral routes', async () => {
     window.history.replaceState(null, '', '/apps/chat/spaces/general');
 
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Chess' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Chess' }));
     fireEvent.change(screen.getByLabelText('Space name'), { target: { value: ' Board ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Go' }));
 
@@ -58,7 +72,7 @@ describe('platform app shell', () => {
     window.history.replaceState(null, '', '/apps/snake/spaces/arena');
 
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy link' }));
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
@@ -68,13 +82,13 @@ describe('platform app shell', () => {
     expect(await screen.findByText('Space link copied.')).toBeInTheDocument();
   });
 
-  it('stores the normalized display name and joins the selected platform space', () => {
+  it('stores the normalized display name and joins the selected platform space', async () => {
     window.history.replaceState(null, '', '/apps/chess/spaces/board');
     window.localStorage.setItem('citadel.guestId', 'stable-grace');
     mockSocket.connected = true;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Choose a display name'), {
+    fireEvent.change(await screen.findByLabelText('Choose a display name'), {
       target: { value: '  Grace   Hopper  ' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Join' }));
@@ -88,11 +102,11 @@ describe('platform app shell', () => {
     });
   });
 
-  it('creates and stores a stable guest id', () => {
+  it('creates and stores a stable guest id', async () => {
     mockSocket.connected = true;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Choose a display name'), {
+    fireEvent.change(await screen.findByLabelText('Choose a display name'), {
       target: { value: 'Ada' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Join' }));
@@ -107,12 +121,13 @@ describe('platform app shell', () => {
     });
   });
 
-  it('renders chat state and emits app events from the chat view', () => {
+  it('renders chat state and emits app events from the chat view', async () => {
     window.localStorage.setItem('citadel.displayName', 'Ada');
     window.localStorage.setItem('citadel.guestId', 'stable-ada');
     mockSocket.connected = true;
 
     render(<App />);
+    await screen.findByRole('heading', { name: 'Chat' });
 
     act(() => {
       triggerSocketEvent('space:state', {
@@ -136,13 +151,14 @@ describe('platform app shell', () => {
     });
   });
 
-  it('renders chess and snake app states', () => {
+  it('renders chess and snake app states', async () => {
     window.localStorage.setItem('citadel.displayName', 'Ada');
     window.localStorage.setItem('citadel.guestId', 'stable-ada');
     window.history.replaceState(null, '', '/apps/chess/spaces/general');
     mockSocket.connected = true;
 
     render(<App />);
+    await screen.findByRole('heading', { name: 'Chess' });
     act(() => {
       triggerSocketEvent('space:state', {
         appId: 'chess',
@@ -177,5 +193,67 @@ describe('platform app shell', () => {
     });
 
     expect(screen.getByLabelText('Snake arena')).toBeInTheDocument();
+  });
+
+  it('renders only enabled app tabs from runtime config', async () => {
+    mockEnabledApps(['chat']);
+
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: 'Chat' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chess' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Snake' })).not.toBeInTheDocument();
+  });
+
+  it('redirects disabled app routes to the first enabled app while preserving space', async () => {
+    mockEnabledApps(['chat']);
+    window.history.replaceState(null, '', '/apps/chess/spaces/board');
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Chat' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/apps/chat/spaces/board');
+    });
+  });
+
+  it('redirects legacy rooms to the first enabled app when chat is disabled', async () => {
+    mockEnabledApps(['snake']);
+    window.history.replaceState(null, '', '/rooms/arena');
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Snake' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/apps/snake/spaces/arena');
+    });
+  });
+
+  it('does not join before runtime app config loads', async () => {
+    let resolveConfig: (response: Response) => void = () => {};
+    const config = new Promise<Response>((resolve) => {
+      resolveConfig = resolve;
+    });
+    vi.stubGlobal('fetch', vi.fn(() => config));
+    window.localStorage.setItem('citadel.displayName', 'Ada');
+    mockSocket.connected = true;
+
+    render(<App />);
+
+    expect(mockSocket.emit).not.toHaveBeenCalledWith('space:join', expect.anything());
+
+    await act(async () => {
+      resolveConfig(new Response(JSON.stringify({ apps: allApps })));
+      await config;
+    });
+
+    await waitFor(() => {
+      expect(mockSocket.emit).toHaveBeenCalledWith('space:join', {
+        appId: 'chat',
+        guestId: expect.any(String),
+        name: 'Ada',
+        spaceId: 'general'
+      });
+    });
   });
 });

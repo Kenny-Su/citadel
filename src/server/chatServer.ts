@@ -1,4 +1,5 @@
 import { createPlatformServer, type PlatformServerOptions } from '../platform/server.js';
+import type { AppId } from '../shared/platform.js';
 import { type ChatRepository, type MessageStore } from '../apps/chat/index.js';
 import { type ChessRepository } from '../apps/chess/index.js';
 import { createBundledServerApps, resolveBundledRepositories } from '../apps/serverRegistry.js';
@@ -13,6 +14,7 @@ export type ChatServerOptions = Omit<PlatformServerOptions, 'apps'> & {
     maxMessages: number;
     windowMs: number;
   };
+  enabledAppIds?: AppId[];
 };
 
 export function createChatServer(options: ChatServerOptions | string = {}) {
@@ -28,7 +30,8 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
     chatRepository: typeof options === 'string' ? undefined : options.chatRepository,
     chessRepository: typeof options === 'string' ? undefined : options.chessRepository,
     messageStore: typeof options === 'string' ? undefined : options.messageStore,
-    messageRateLimit: typeof options === 'string' ? undefined : options.messageRateLimit
+    messageRateLimit: typeof options === 'string' ? undefined : options.messageRateLimit,
+    enabledAppIds: typeof options === 'string' ? undefined : options.enabledAppIds
   };
   const { chatRepository, chessRepository } = resolveBundledRepositories(services);
 

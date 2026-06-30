@@ -33,6 +33,7 @@ The server reads:
 - `PORT`: HTTP port, default `3001`.
 - `HOST`: bind host, default `0.0.0.0`.
 - `CLIENT_ORIGIN`: allowed Socket.IO browser origin, default `http://localhost:5173`.
+- `CITADEL_ENABLED_APPS`: comma-separated enabled apps, default `chat,chess,snake`.
 - `CITADEL_DB_PATH`: SQLite database path for chat history, default `data/citadel.sqlite`.
 - Chess games and moves use the same SQLite database through app-owned tables.
 - `CHAT_DB_PATH`: legacy override for the chat SQLite path. If both are set, `CHAT_DB_PATH` wins.

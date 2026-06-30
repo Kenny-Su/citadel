@@ -89,6 +89,75 @@ describe('platform socket', () => {
     return state;
   }
 
+  it('exposes enabled apps through health and config', async () => {
+    clients.forEach((client) => client.close());
+    clients.length = 0;
+    await new Promise<void>((resolve) => server.io.close(() => resolve()));
+    await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
+    database.close();
+
+    database = openCitadelDatabase(dbPath);
+    server = createChatServer({
+      clientOrigin: '*',
+      database,
+      chatRepository: createChatRepository(database.database),
+      chessRepository: createChessRepository(database.database),
+      enabledAppIds: ['chat', 'snake'],
+      messageRateLimit: {
+        maxMessages: 5,
+        windowMs: 80
+      }
+    });
+    await new Promise<void>((resolve) => server.httpServer.listen(0, '127.0.0.1', resolve));
+    const address = server.httpServer.address() as AddressInfo;
+    url = `http://127.0.0.1:${address.port}`;
+
+    await expect(fetch(`${url}/health`).then((response) => response.json())).resolves.toMatchObject({
+      apps: ['chat', 'snake']
+    });
+    await expect(fetch(`${url}/config`).then((response) => response.json())).resolves.toEqual({
+      apps: ['chat', 'snake']
+    });
+  });
+
+  it('rejects joins for disabled apps', async () => {
+    clients.forEach((client) => client.close());
+    clients.length = 0;
+    await new Promise<void>((resolve) => server.io.close(() => resolve()));
+    await new Promise<void>((resolve) => server.httpServer.close(() => resolve()));
+    database.close();
+
+    database = openCitadelDatabase(dbPath);
+    server = createChatServer({
+      clientOrigin: '*',
+      database,
+      chatRepository: createChatRepository(database.database),
+      chessRepository: createChessRepository(database.database),
+      enabledAppIds: ['chat'],
+      messageRateLimit: {
+        maxMessages: 5,
+        windowMs: 80
+      }
+    });
+    await new Promise<void>((resolve) => server.httpServer.listen(0, '127.0.0.1', resolve));
+    const address = server.httpServer.address() as AddressInfo;
+    url = `http://127.0.0.1:${address.port}`;
+
+    const ada = await connectClient();
+    const error = once<PlatformErrorPayload>(ada, 'error:notice');
+    ada.emit('space:join', {
+      appId: 'chess',
+      guestId: 'stable-ada',
+      name: 'Ada',
+      spaceId: 'board'
+    });
+
+    expect(await error).toEqual({ message: 'Unknown app.' });
+
+    const state = await joinSpace(ada, 'Ada', 'chat', 'general', 'stable-ada');
+    expect(state.appId).toBe('chat');
+  });
+
   it('joins participants and isolates presence by app and space', async () => {
     const ada = await connectClient();
     const grace = await connectClient();

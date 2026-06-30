@@ -23,9 +23,18 @@ export type ClientAppModule<TState = unknown> = {
   View: React.ComponentType<AppViewProps<TState>>;
 };
 
-export const clientApps = [chatClientApp, chessClientApp, snakeClientApp] satisfies ClientAppModule<any>[];
+export const allClientApps = [chatClientApp, chessClientApp, snakeClientApp] satisfies ClientAppModule<any>[];
 
-export const appById = new Map<AppId, ClientAppModule<any>>(clientApps.map((app) => [app.appId, app]));
+export const clientApps = allClientApps;
+
+export const appById = new Map<AppId, ClientAppModule<any>>(allClientApps.map((app) => [app.appId, app]));
+
+export function filterClientApps(enabledAppIds: AppId[]) {
+  const enabled = new Set(enabledAppIds);
+  const apps = allClientApps.filter((app) => enabled.has(app.appId));
+
+  return apps.length > 0 ? apps : allClientApps;
+}
 
 export type KnownAppState = ChatState | ChessState | SnakeState;
 
