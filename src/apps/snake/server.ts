@@ -1,5 +1,5 @@
 import type { Participant } from '../../shared/platform.js';
-import type { ServerAppContext, ServerAppModule } from '../../platform/server.js';
+import type { ServerAppContext, ServerAppModule } from '../../platform/appContract.js';
 import type { SnakeDirection, SnakeDirectionPayload, SnakePlayer, SnakeSegment, SnakeState } from './shared.js';
 
 const WIDTH = 20;

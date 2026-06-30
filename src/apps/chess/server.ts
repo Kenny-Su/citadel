@@ -1,7 +1,7 @@
 import { Chess } from 'chess.js';
 import { nanoid } from 'nanoid';
 import type { Participant } from '../../shared/platform.js';
-import type { ServerAppModule } from '../../platform/server.js';
+import type { ServerAppModule } from '../../platform/appContract.js';
 import type { ChessColor, ChessMovePayload, ChessState } from './shared.js';
 import type { ChessRepository } from './repository.js';
 

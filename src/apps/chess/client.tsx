@@ -1,6 +1,6 @@
-import type { ClientAppModule } from '../../client/appRegistry';
-import type { ChessState } from './shared';
-import { ChessView } from './ChessView';
+import type { ClientAppModule } from '../../client/appRegistry.js';
+import type { ChessState } from './shared.js';
+import { ChessView } from './ChessView.js';
 
 export const chessClientApp = {
   appId: 'chess',

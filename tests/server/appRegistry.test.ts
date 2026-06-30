@@ -1,11 +1,11 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBundledServerApps, resolveBundledRepositories } from '../../src/apps/serverRegistry.js';
 import { openCitadelDatabase, type CitadelDatabase } from '../../src/persistence/sqlite.js';
-import type { ChatRepository } from '../../src/apps/chat/messageStore.js';
-import type { ChessRepository } from '../../src/apps/chess/repository.js';
+import type { ChatRepository } from '../../src/apps/chat/index.js';
+import type { ChessRepository } from '../../src/apps/chess/index.js';
 
 describe('bundled server app registry', () => {
   let tempDir: string;
@@ -46,5 +46,11 @@ describe('bundled server app registry', () => {
       chatRepository,
       chessRepository
     });
+  });
+
+  it('keeps the platform server free of app imports', () => {
+    const source = readFileSync(join(process.cwd(), 'src/platform/server.ts'), 'utf8');
+
+    expect(source).not.toContain('../apps/');
   });
 });

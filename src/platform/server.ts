@@ -14,34 +14,13 @@ import {
   normalizeGuestId,
   normalizeSpaceId
 } from '../shared/platform.js';
+import type { ServerAppContext, ServerAppModule } from './appContract.js';
 import { validateDisplayName } from './validation.js';
 
 export type PlatformServerOptions = {
   clientOrigin?: string;
   staticDir?: string;
   apps: ServerAppModule[];
-};
-
-export type ServerAppContext = {
-  appId: AppId;
-  spaceId: string;
-  socketId: string;
-  participant: Participant;
-  participants: Participant[];
-  emitToSpace(type: string, payload?: unknown): void;
-  emitToParticipant(type: string, payload?: unknown): void;
-  emitSpaceState(): void;
-  getAppState<T>(): T | undefined;
-  setAppState<T>(state: T): void;
-  clearAppState(): void;
-};
-
-export type ServerAppModule = {
-  appId: AppId;
-  getInitialState(context: Omit<ServerAppContext, 'participant' | 'socketId'>): unknown;
-  handleEvent(context: ServerAppContext, event: AppEventEnvelope): void;
-  onParticipantJoined?(context: ServerAppContext): void;
-  onParticipantLeft?(context: ServerAppContext): void;
 };
 
 type ParticipantSession = {

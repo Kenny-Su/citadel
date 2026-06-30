@@ -1,6 +1,6 @@
 import { createPlatformServer, type PlatformServerOptions } from '../platform/server.js';
-import { type ChatRepository, type MessageStore } from '../apps/chat/messageStore.js';
-import { type ChessRepository } from '../apps/chess/repository.js';
+import { type ChatRepository, type MessageStore } from '../apps/chat/index.js';
+import { type ChessRepository } from '../apps/chess/index.js';
 import { createBundledServerApps, resolveBundledRepositories } from '../apps/serverRegistry.js';
 import { openCitadelDatabase, type CitadelDatabase } from '../persistence/sqlite.js';
 

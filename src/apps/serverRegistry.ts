@@ -1,11 +1,10 @@
-import type { AppId } from '../shared/platform.js';
-import type { ServerAppModule } from '../platform/server.js';
+import type { ServerAppModule, ServerAppBundle } from '../platform/appContract.js';
 import type { CitadelDatabase } from '../persistence/sqlite.js';
-import { createChatApp } from './chat/server.js';
-import { createChatRepository, type ChatRepository, type MessageStore } from './chat/messageStore.js';
-import { createChessApp } from './chess/server.js';
-import { createChessRepository, type ChessRepository } from './chess/repository.js';
-import { createSnakeApp } from './snake/server.js';
+import type { ChatRepository, MessageStore } from './chat/index.js';
+import type { ChessRepository } from './chess/index.js';
+import { chatServerBundle, resolveChatRepository } from './chat/index.js';
+import { chessServerBundle, resolveChessRepository } from './chess/index.js';
+import { snakeServerBundle } from './snake/index.js';
 
 export type ChatRateLimitOptions = {
   maxMessages: number;
@@ -20,52 +19,18 @@ export type ServerAppServices = {
   messageRateLimit?: ChatRateLimitOptions;
 };
 
-export type ServerAppBundle = {
-  appId: AppId;
-  createServerApp(services: ServerAppServices): ServerAppModule;
-};
-
 export function resolveBundledRepositories(services: ServerAppServices) {
-  const chatRepository =
-    services.chatRepository ?? services.messageStore ?? createChatRepository(services.database.database);
-  const chessRepository =
-    services.chessRepository ?? createChessRepository(services.database.database);
-
   return {
-    chatRepository,
-    chessRepository
+    chatRepository: resolveChatRepository(services),
+    chessRepository: resolveChessRepository(services)
   };
 }
 
 export const bundledServerAppBundles = [
-  {
-    appId: 'chat',
-    createServerApp(services) {
-      const { chatRepository } = resolveBundledRepositories(services);
-
-      return createChatApp({
-        repository: chatRepository,
-        messageRateLimit: services.messageRateLimit
-      });
-    }
-  },
-  {
-    appId: 'chess',
-    createServerApp(services) {
-      const { chessRepository } = resolveBundledRepositories(services);
-
-      return createChessApp({
-        repository: chessRepository
-      });
-    }
-  },
-  {
-    appId: 'snake',
-    createServerApp() {
-      return createSnakeApp();
-    }
-  }
-] satisfies ServerAppBundle[];
+  chatServerBundle,
+  chessServerBundle,
+  snakeServerBundle
+] satisfies ServerAppBundle<ServerAppServices>[];
 
 export function createBundledServerApps(services: ServerAppServices): ServerAppModule[] {
   const repositories = resolveBundledRepositories(services);

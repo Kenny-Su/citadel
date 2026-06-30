@@ -1,6 +1,6 @@
-import type { ClientAppModule } from '../../client/appRegistry';
-import type { ChatState } from './shared';
-import { ChatView } from './ChatView';
+import type { ClientAppModule } from '../../client/appRegistry.js';
+import type { ChatState } from './shared.js';
+import { ChatView } from './ChatView.js';
 
 export const chatClientApp = {
   appId: 'chat',
