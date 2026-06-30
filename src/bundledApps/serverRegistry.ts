@@ -1,5 +1,5 @@
-import type { AppId } from '../shared/platform.js';
-import { isAppId } from '../shared/platform.js';
+import type { AppId } from '@citadel/platform/app';
+import { isAppId } from '@citadel/platform/app';
 import type { AppManifest } from '../platform/appContract.js';
 import type { ServerAppModule } from '../platform/serverAppContract.js';
 import {

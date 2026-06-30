@@ -48,6 +48,7 @@ const platformModuleNames = [
   'validation',
   'version'
 ] as const;
+const platformSourceModuleNames = [...platformModuleNames, 'shared', 'sqlite'] as const;
 
 function source(path: string) {
   return readFileSync(join(process.cwd(), path), 'utf8');
@@ -65,9 +66,11 @@ function appImplementationPath(appId: (typeof appIds)[number], fileName: string)
 
 describe('app package import boundaries', () => {
   it('keeps platform core free of concrete app imports', () => {
-    for (const moduleName of platformModuleNames) {
+    for (const moduleName of platformSourceModuleNames) {
       expect(source(`packages/platform/src/${moduleName}.ts`)).not.toContain('../apps/');
       expect(source(`packages/platform/src/${moduleName}.ts`)).not.toContain('../../../src/apps/');
+      expect(source(`packages/platform/src/${moduleName}.ts`)).not.toContain('../../../src/shared/');
+      expect(source(`packages/platform/src/${moduleName}.ts`)).not.toContain('../../../src/persistence/');
     }
     expect(source('packages/platform/src/appContract.ts')).not.toContain('react');
   });
@@ -99,6 +102,7 @@ describe('app package import boundaries', () => {
     const registry = source('src/client/appRegistry.tsx');
 
     expect(registry).toContain("from '@citadel/apps/catalog'");
+    expect(registry).toContain("from '@citadel/platform/app'");
     for (const appId of appIds) {
       expect(registry).toContain(`from '@citadel/app-${appId}'`);
       expect(registry).toContain(`from '@citadel/app-${appId}/client'`);
@@ -312,6 +316,15 @@ describe('app package import boundaries', () => {
         `export * from '../../packages/platform/src/${moduleName}.js';`
       );
     }
+  });
+
+  it('keeps root shared and persistence files as thin compatibility shims', () => {
+    expect(source('src/shared/platform.ts').trim()).toBe(
+      "export * from '../../packages/platform/src/shared.js';"
+    );
+    expect(source('src/persistence/sqlite.ts').trim()).toBe(
+      "export * from '../../packages/platform/src/sqlite.js';"
+    );
   });
 
   it('keeps moved app src files as thin compatibility shims', () => {

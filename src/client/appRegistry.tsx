@@ -1,6 +1,6 @@
 import type { AppManifest } from '../platform/appContract';
 import type { ClientAppModule } from '../platform/clientAppContract';
-import type { AppEventEnvelope, AppId } from '../shared/platform';
+import type { AppEventEnvelope, AppId } from '@citadel/platform/app';
 import type { ChatState } from '@citadel/app-chat';
 import type { ChessState } from '@citadel/app-chess';
 import type { SnakeState } from '@citadel/app-snake';

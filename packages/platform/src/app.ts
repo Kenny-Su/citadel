@@ -16,5 +16,5 @@ export {
   type ParticipantEvent,
   type PlatformErrorPayload,
   type SpaceState
-} from '../../../src/shared/platform.js';
+} from './shared.js';
 export type { ValidationResult } from './validation.js';

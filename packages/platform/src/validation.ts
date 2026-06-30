@@ -1,4 +1,4 @@
-import { DISPLAY_NAME_MAX_LENGTH } from '../../../src/shared/platform.js';
+import { DISPLAY_NAME_MAX_LENGTH } from './shared.js';
 
 export type ValidationResult =
   | { ok: true; value: string }

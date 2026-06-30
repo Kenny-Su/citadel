@@ -38,6 +38,7 @@ Workspace packages exist under `packages/` as the scaffold for the source split.
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` export `.`, `./client`, and `./server`.
 
 Temporary `src/platform/*` files remain as compatibility shims while the server/client shell code migrates to package imports.
+Shared platform payloads and SQLite persistence are platform-owned under `packages/platform/src`, with `src/shared/platform.ts` and `src/persistence/sqlite.ts` left as temporary compatibility shims.
 All bundled apps are source-owning workspace packages: their implementations live under `packages/apps/<app>/src`, with `src/apps/<app>/*` left as temporary compatibility shims.
 Temporary `src/apps/catalog.ts`, `src/apps/serverRegistry.ts`, and `src/apps/serverServices.ts` remain as compatibility shims while host code migrates to `src/bundledApps`.
 
@@ -62,6 +63,7 @@ For example, a future package can map these to exports like:
 - App code imports platform contracts, shared platform helpers, and persistence APIs through `@citadel/platform/*` aliases rather than relative platform, shared, or persistence paths.
 - Registries import bundled app public surfaces through `@citadel/app-*` package aliases rather than relative app entrypoint paths.
 - Platform implementation lives in `packages/platform/src`; compatibility files under `src/platform` must stay thin re-export shims.
+- Root shared and persistence compatibility files must stay thin re-export shims to platform-owned source.
 - Bundled app assembly lives in `src/bundledApps`; compatibility files under `src/apps` must not contain host registry logic.
 - App package shell entrypoints stay thin re-export shims to package-local source once each app moves.
 - App compatibility files under `src/apps/<app>` must stay thin re-export shims after that app owns package source.

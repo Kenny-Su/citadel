@@ -13,7 +13,7 @@ import {
   isAppId,
   normalizeGuestId,
   normalizeSpaceId
-} from '../../../src/shared/platform.js';
+} from './shared.js';
 import type { AppManifest } from './appContract.js';
 import type { ServerAppContext, ServerAppModule } from './serverAppContract.js';
 import { validateDisplayName } from './validation.js';

@@ -1,4 +1,4 @@
-import type { AppEventEnvelope, AppId, Participant } from '../../../src/shared/platform.js';
+import type { AppEventEnvelope, AppId, Participant } from './shared.js';
 
 export type ServerAppContext = {
   appId: AppId;

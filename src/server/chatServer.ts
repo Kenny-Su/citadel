@@ -1,5 +1,5 @@
 import { createPlatformServer, type PlatformServerOptions } from '../platform/server.js';
-import type { AppId } from '../shared/platform.js';
+import type { AppId } from '@citadel/platform/app';
 import { type ChatRepository, type MessageStore } from '../apps/chat/serverEntry.js';
 import { type ChessRepository } from '../apps/chess/serverEntry.js';
 import {
@@ -7,7 +7,7 @@ import {
   filterAppManifests,
   resolveBundledRepositories
 } from '../bundledApps/serverRegistry.js';
-import { openCitadelDatabase, type CitadelDatabase } from '../persistence/sqlite.js';
+import { openCitadelDatabase, type CitadelDatabase } from '@citadel/platform/persistence';
 
 export type ChatServerOptions = Omit<PlatformServerOptions, 'apps'> & {
   database?: CitadelDatabase;

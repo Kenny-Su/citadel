@@ -1,1 +1,1 @@
-export { openCitadelDatabase, type CitadelDatabase } from '../../../src/persistence/sqlite.js';
+export { openCitadelDatabase, type CitadelDatabase } from './sqlite.js';

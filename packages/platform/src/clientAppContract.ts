@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { AppId, Participant } from '../../../src/shared/platform.js';
+import type { AppId, Participant } from './shared.js';
 
 export type AppViewProps<TState = unknown> = {
   currentParticipant: Participant;

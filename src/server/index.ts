@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPlatformServer } from '../platform/server.js';
 import { createBundledServerApps, filterAppManifests, getEnabledAppIds } from '../bundledApps/serverRegistry.js';
-import { openCitadelDatabase } from '../persistence/sqlite.js';
+import { openCitadelDatabase } from '@citadel/platform/persistence';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';

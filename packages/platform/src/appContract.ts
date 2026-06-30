@@ -1,4 +1,4 @@
-import type { AppId } from '../../../src/shared/platform.js';
+import type { AppId } from './shared.js';
 
 export type AppManifest = {
   appId: AppId;

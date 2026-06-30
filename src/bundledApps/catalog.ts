@@ -1,5 +1,5 @@
 import type { AppManifest } from '../platform/appContract.js';
-import type { AppId } from '../shared/platform.js';
+import type { AppId } from '@citadel/platform/app';
 import { chatManifest } from '@citadel/app-chat';
 import { chessManifest } from '@citadel/app-chess';
 import { snakeManifest } from '@citadel/app-snake';
