@@ -1,9 +1,12 @@
 import type { ServerAppBundle } from '../../platform/appContract.js';
 import type { ServerAppServices } from '../serverRegistry.js';
 import { createSnakeApp } from './server.js';
+import { snakeManifest } from './manifest.js';
+
+export { snakeManifest } from './manifest.js';
 
 export const snakeServerBundle = {
-  appId: 'snake',
+  appId: snakeManifest.appId,
   createServerApp() {
     return createSnakeApp();
   }

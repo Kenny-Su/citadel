@@ -1,12 +1,12 @@
 import type { AppId } from '../shared/platform.js';
 import { isAppId } from '../shared/platform.js';
-import type { ServerAppModule, ServerAppBundle } from '../platform/appContract.js';
+import type { AppManifest, ServerAppModule, ServerAppBundle } from '../platform/appContract.js';
 import type { CitadelDatabase } from '../persistence/sqlite.js';
 import type { ChatRepository, MessageStore } from './chat/index.js';
 import type { ChessRepository } from './chess/index.js';
-import { chatServerBundle, resolveChatRepository } from './chat/index.js';
-import { chessServerBundle, resolveChessRepository } from './chess/index.js';
-import { snakeServerBundle } from './snake/index.js';
+import { chatManifest, chatServerBundle, resolveChatRepository } from './chat/index.js';
+import { chessManifest, chessServerBundle, resolveChessRepository } from './chess/index.js';
+import { snakeManifest, snakeServerBundle } from './snake/index.js';
 
 export type ChatRateLimitOptions = {
   maxMessages: number;
@@ -34,6 +34,12 @@ export const bundledServerAppBundles = [
   chessServerBundle,
   snakeServerBundle
 ] satisfies ServerAppBundle<ServerAppServices>[];
+
+export const bundledAppManifests: AppManifest[] = [
+  chatManifest,
+  chessManifest,
+  snakeManifest
+];
 
 const allBundledAppIds = bundledServerAppBundles.map((bundle) => bundle.appId);
 
@@ -63,6 +69,12 @@ export function filterServerAppBundles(enabledAppIds: AppId[]) {
   return enabledAppIds
     .map((appId) => bundledServerAppBundles.find((bundle) => bundle.appId === appId))
     .filter((bundle): bundle is (typeof bundledServerAppBundles)[number] => Boolean(bundle));
+}
+
+export function filterAppManifests(enabledAppIds: AppId[]) {
+  return enabledAppIds
+    .map((appId) => bundledAppManifests.find((manifest) => manifest.appId === appId))
+    .filter((manifest): manifest is AppManifest => Boolean(manifest));
 }
 
 export function createBundledServerApps(services: ServerAppServices): ServerAppModule[] {

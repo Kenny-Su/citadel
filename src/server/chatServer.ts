@@ -2,7 +2,11 @@ import { createPlatformServer, type PlatformServerOptions } from '../platform/se
 import type { AppId } from '../shared/platform.js';
 import { type ChatRepository, type MessageStore } from '../apps/chat/index.js';
 import { type ChessRepository } from '../apps/chess/index.js';
-import { createBundledServerApps, resolveBundledRepositories } from '../apps/serverRegistry.js';
+import {
+  createBundledServerApps,
+  filterAppManifests,
+  resolveBundledRepositories
+} from '../apps/serverRegistry.js';
 import { openCitadelDatabase, type CitadelDatabase } from '../persistence/sqlite.js';
 
 export type ChatServerOptions = Omit<PlatformServerOptions, 'apps'> & {
@@ -34,11 +38,13 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
     enabledAppIds: typeof options === 'string' ? undefined : options.enabledAppIds
   };
   const { chatRepository, chessRepository } = resolveBundledRepositories(services);
+  const appManifests = services.enabledAppIds ? filterAppManifests(services.enabledAppIds) : undefined;
 
   return {
     ...createPlatformServer({
       clientOrigin,
       staticDir: typeof options === 'string' ? undefined : options.staticDir,
+      appManifests,
       apps: createBundledServerApps({
         ...services,
         chatRepository,

@@ -27,6 +27,7 @@ type RouteState = {
 
 type ClientConfig = {
   apps?: unknown;
+  appManifests?: unknown;
 };
 
 function parseRoute(): RouteState {

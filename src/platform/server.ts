@@ -14,13 +14,14 @@ import {
   normalizeGuestId,
   normalizeSpaceId
 } from '../shared/platform.js';
-import type { ServerAppContext, ServerAppModule } from './appContract.js';
+import type { AppManifest, ServerAppContext, ServerAppModule } from './appContract.js';
 import { validateDisplayName } from './validation.js';
 
 export type PlatformServerOptions = {
   clientOrigin?: string;
   staticDir?: string;
   apps: ServerAppModule[];
+  appManifests?: AppManifest[];
 };
 
 type ParticipantSession = {
@@ -41,11 +42,18 @@ export function createPlatformServer(options: PlatformServerOptions) {
   });
 
   const modules = new Map<AppId, ServerAppModule>();
+  const manifests = new Map<AppId, AppManifest>();
   const sessions = new Map<string, ParticipantSession>();
   const appState = new Map<string, unknown>();
 
   for (const module of options.apps) {
     modules.set(module.appId, module);
+  }
+
+  for (const manifest of options.appManifests ?? []) {
+    if (modules.has(manifest.appId)) {
+      manifests.set(manifest.appId, manifest);
+    }
   }
 
   function spaceKey(appId: AppId, spaceId: string) {
@@ -188,8 +196,13 @@ export function createPlatformServer(options: PlatformServerOptions) {
   });
 
   app.get('/config', (_request, response) => {
+    const apps = [...modules.keys()];
+
     response.json({
-      apps: [...modules.keys()]
+      apps,
+      appManifests: apps
+        .map((appId) => manifests.get(appId))
+        .filter((manifest): manifest is AppManifest => Boolean(manifest))
     });
   });
 

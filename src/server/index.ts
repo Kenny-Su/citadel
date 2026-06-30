@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPlatformServer } from '../platform/server.js';
-import { createBundledServerApps, getEnabledAppIds } from '../apps/serverRegistry.js';
+import { createBundledServerApps, filterAppManifests, getEnabledAppIds } from '../apps/serverRegistry.js';
 import { openCitadelDatabase } from '../persistence/sqlite.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -17,6 +17,7 @@ const enabledAppIds = getEnabledAppIds(process.env.CITADEL_ENABLED_APPS);
 const { httpServer } = createPlatformServer({
   clientOrigin: CLIENT_ORIGIN,
   staticDir: existsSync(resolve(staticDir, 'index.html')) ? staticDir : undefined,
+  appManifests: filterAppManifests(enabledAppIds),
   apps: createBundledServerApps({
     database: citadelDatabase,
     enabledAppIds

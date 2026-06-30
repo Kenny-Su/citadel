@@ -1,5 +1,13 @@
 import type { AppEventEnvelope, AppId, Participant } from '../shared/platform.js';
 
+export type AppManifest = {
+  appId: AppId;
+  label: string;
+  defaultSpaceId: string;
+  persistence: 'none' | 'sqlite';
+  version: string;
+};
+
 export type ServerAppContext = {
   appId: AppId;
   spaceId: string;

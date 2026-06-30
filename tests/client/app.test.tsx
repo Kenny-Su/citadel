@@ -6,11 +6,34 @@ import { App } from '../../src/client/App';
 describe('platform app shell', () => {
   const mockSocket = getMockSocket();
   const allApps = ['chat', 'chess', 'snake'];
+  const allAppManifests = [
+    {
+      appId: 'chat',
+      label: 'Chat',
+      defaultSpaceId: 'general',
+      persistence: 'sqlite',
+      version: '0.1.0'
+    },
+    {
+      appId: 'chess',
+      label: 'Chess',
+      defaultSpaceId: 'general',
+      persistence: 'sqlite',
+      version: '0.1.0'
+    },
+    {
+      appId: 'snake',
+      label: 'Snake',
+      defaultSpaceId: 'general',
+      persistence: 'none',
+      version: '0.1.0'
+    }
+  ];
 
-  function mockEnabledApps(apps = allApps) {
+  function mockEnabledApps(apps = allApps, appManifests: unknown[] = allAppManifests) {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(JSON.stringify({ apps }), {
+      vi.fn(async () => new Response(JSON.stringify({ apps, appManifests }), {
         headers: { 'content-type': 'application/json' }
       }))
     );
@@ -203,6 +226,16 @@ describe('platform app shell', () => {
     expect(await screen.findByRole('button', { name: 'Chat' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Chess' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Snake' })).not.toBeInTheDocument();
+  });
+
+  it('renders enabled app tabs when runtime config includes manifests', async () => {
+    mockEnabledApps(['chat', 'snake'], [allAppManifests[0], allAppManifests[2]]);
+
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: 'Chat' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Snake' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chess' })).not.toBeInTheDocument();
   });
 
   it('redirects disabled app routes to the first enabled app while preserving space', async () => {

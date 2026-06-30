@@ -116,7 +116,23 @@ describe('platform socket', () => {
       apps: ['chat', 'snake']
     });
     await expect(fetch(`${url}/config`).then((response) => response.json())).resolves.toEqual({
-      apps: ['chat', 'snake']
+      apps: ['chat', 'snake'],
+      appManifests: [
+        {
+          appId: 'chat',
+          label: 'Chat',
+          defaultSpaceId: 'general',
+          persistence: 'sqlite',
+          version: '0.1.0'
+        },
+        {
+          appId: 'snake',
+          label: 'Snake',
+          defaultSpaceId: 'general',
+          persistence: 'none',
+          version: '0.1.0'
+        }
+      ]
     });
   });
 

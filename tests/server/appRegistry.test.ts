@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  bundledAppManifests,
+  bundledServerAppBundles,
   createBundledServerApps,
+  filterAppManifests,
   filterServerAppBundles,
   getEnabledAppIds,
   resolveBundledRepositories
@@ -32,6 +35,35 @@ describe('bundled server app registry', () => {
     expect(apps.map((app) => app.appId)).toEqual(['chat', 'chess', 'snake']);
   });
 
+  it('exposes bundled manifests in app order', () => {
+    expect(bundledAppManifests).toEqual([
+      {
+        appId: 'chat',
+        label: 'Chat',
+        defaultSpaceId: 'general',
+        persistence: 'sqlite',
+        version: '0.1.0'
+      },
+      {
+        appId: 'chess',
+        label: 'Chess',
+        defaultSpaceId: 'general',
+        persistence: 'sqlite',
+        version: '0.1.0'
+      },
+      {
+        appId: 'snake',
+        label: 'Snake',
+        defaultSpaceId: 'general',
+        persistence: 'none',
+        version: '0.1.0'
+      }
+    ]);
+    expect(bundledAppManifests.map((manifest) => manifest.appId)).toEqual(
+      bundledServerAppBundles.map((bundle) => bundle.appId)
+    );
+  });
+
   it('parses enabled app configuration with defaults and fallback', () => {
     expect(getEnabledAppIds()).toEqual(['chat', 'chess', 'snake']);
     expect(getEnabledAppIds(' chess, chat, chess, unknown, snake ')).toEqual([
@@ -44,6 +76,13 @@ describe('bundled server app registry', () => {
 
   it('filters server app bundles by enabled app ids', () => {
     expect(filterServerAppBundles(['snake', 'chat']).map((bundle) => bundle.appId)).toEqual([
+      'snake',
+      'chat'
+    ]);
+  });
+
+  it('filters app manifests by enabled app ids', () => {
+    expect(filterAppManifests(['snake', 'chat']).map((manifest) => manifest.appId)).toEqual([
       'snake',
       'chat'
     ]);
