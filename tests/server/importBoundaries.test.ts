@@ -29,6 +29,7 @@ describe('app package import boundaries', () => {
   it('keeps client registry wired only to app client entrypoints and neutral shared types', () => {
     const registry = source('src/client/appRegistry.tsx');
 
+    expect(registry).toContain("from '../apps/catalog'");
     for (const appId of appIds) {
       expect(registry).toContain(`from '../apps/${appId}'`);
       expect(registry).toContain(`from '../apps/${appId}/client'`);
@@ -41,8 +42,8 @@ describe('app package import boundaries', () => {
   it('keeps server registry wired only to app server entrypoints and neutral manifests', () => {
     const registry = source('src/apps/serverRegistry.ts');
 
+    expect(registry).toContain("from './catalog.js'");
     for (const appId of appIds) {
-      expect(registry).toContain(`from './${appId}/index.js'`);
       expect(registry).toContain(`from './${appId}/serverEntry.js'`);
     }
     expect(registry).not.toMatch(

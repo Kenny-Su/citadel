@@ -3,13 +3,18 @@ import type { AppEventEnvelope, AppId } from '../shared/platform';
 import type { ChatState } from '../apps/chat';
 import type { ChessState } from '../apps/chess';
 import type { SnakeState } from '../apps/snake';
+import { orderBundledAppEntries } from '../apps/catalog';
 import { chatClientApp } from '../apps/chat/client';
 import { chessClientApp } from '../apps/chess/client';
 import { snakeClientApp } from '../apps/snake/client';
 
 export type { AppViewProps, ClientAppModule } from '../platform/appContract';
 
-export const allClientApps = [chatClientApp, chessClientApp, snakeClientApp] satisfies ClientAppModule<any>[];
+export const allClientApps = orderBundledAppEntries({
+  chat: chatClientApp,
+  chess: chessClientApp,
+  snake: snakeClientApp
+}) satisfies ClientAppModule<any>[];
 
 export const clientApps = allClientApps;
 

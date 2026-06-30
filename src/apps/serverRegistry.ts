@@ -1,20 +1,22 @@
 import type { AppId } from '../shared/platform.js';
 import { isAppId } from '../shared/platform.js';
 import type { AppManifest, ServerAppModule, ServerAppBundle } from '../platform/appContract.js';
-import { chatManifest } from './chat/index.js';
+import {
+  bundledAppIds,
+  bundledAppManifests,
+  orderBundledAppEntries
+} from './catalog.js';
 import {
   chatServerBundle,
   resolveChatRepository,
   type ChatRepository,
   type MessageStore
 } from './chat/serverEntry.js';
-import { chessManifest } from './chess/index.js';
 import {
   chessServerBundle,
   resolveChessRepository,
   type ChessRepository
 } from './chess/serverEntry.js';
-import { snakeManifest } from './snake/index.js';
 import { snakeServerBundle } from './snake/serverEntry.js';
 import type { ChatRateLimitOptions, ServerAppServices } from './serverServices.js';
 
@@ -27,23 +29,17 @@ export function resolveBundledRepositories(services: ServerAppServices) {
   };
 }
 
-export const bundledServerAppBundles = [
-  chatServerBundle,
-  chessServerBundle,
-  snakeServerBundle
-] satisfies ServerAppBundle<ServerAppServices>[];
+export { bundledAppManifests } from './catalog.js';
 
-export const bundledAppManifests: AppManifest[] = [
-  chatManifest,
-  chessManifest,
-  snakeManifest
-];
-
-const allBundledAppIds = bundledServerAppBundles.map((bundle) => bundle.appId);
+export const bundledServerAppBundles = orderBundledAppEntries({
+  chat: chatServerBundle,
+  chess: chessServerBundle,
+  snake: snakeServerBundle
+}) satisfies ServerAppBundle<ServerAppServices>[];
 
 export function getEnabledAppIds(input?: string): AppId[] {
   if (!input?.trim()) {
-    return [...allBundledAppIds];
+    return [...bundledAppIds];
   }
 
   const enabledAppIds: AppId[] = [];
@@ -60,7 +56,7 @@ export function getEnabledAppIds(input?: string): AppId[] {
     seen.add(appId);
   }
 
-  return enabledAppIds.length > 0 ? enabledAppIds : [...allBundledAppIds];
+  return enabledAppIds.length > 0 ? enabledAppIds : [...bundledAppIds];
 }
 
 export function filterServerAppBundles(enabledAppIds: AppId[]) {

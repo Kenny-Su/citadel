@@ -11,6 +11,7 @@ import {
   getEnabledAppIds,
   resolveBundledRepositories
 } from '../../src/apps/serverRegistry.js';
+import { bundledAppIds } from '../../src/apps/catalog.js';
 import { openCitadelDatabase, type CitadelDatabase } from '../../src/persistence/sqlite.js';
 import type { ChatRepository } from '../../src/apps/chat/serverEntry.js';
 import type { ChessRepository } from '../../src/apps/chess/serverEntry.js';
@@ -72,8 +73,9 @@ describe('bundled server app registry', () => {
       }
     ]);
     expect(bundledAppManifests.map((manifest) => manifest.appId)).toEqual(
-      bundledServerAppBundles.map((bundle) => bundle.appId)
+      bundledAppIds
     );
+    expect(bundledServerAppBundles.map((bundle) => bundle.appId)).toEqual(bundledAppIds);
   });
 
   it('exposes app manifests and server bundles from environment entrypoints', () => {

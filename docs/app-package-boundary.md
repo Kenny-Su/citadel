@@ -10,6 +10,8 @@ Each bundled app exposes three environment-specific surfaces:
 - `src/apps/<app>/client.tsx`: browser `ClientAppModule` and view wiring.
 - `src/apps/<app>/serverEntry.ts`: server bundle, repository resolver, and server-only exports.
 
+Bundled app order and manifest lists are owned by `src/apps/catalog.ts`. Client and server registries derive their ordered app lists from that neutral catalog.
+
 For example, a future package can map these to exports like:
 
 ```json
