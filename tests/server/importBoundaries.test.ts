@@ -24,6 +24,10 @@ function jsonSource<T>(path: string) {
   return JSON.parse(source(path)) as T;
 }
 
+function appImplementationPath(appId: (typeof appIds)[number], fileName: string) {
+  return appId === 'snake' ? `packages/apps/snake/src/${fileName}` : `src/apps/${appId}/${fileName}`;
+}
+
 describe('app package import boundaries', () => {
   it('keeps platform core free of concrete app imports', () => {
     for (const moduleName of platformModuleNames) {
@@ -46,7 +50,7 @@ describe('app package import boundaries', () => {
 
   it('keeps neutral app indexes limited to manifests and shared types', () => {
     for (const appId of appIds) {
-      const indexSource = source(`src/apps/${appId}/index.ts`);
+      const indexSource = source(appImplementationPath(appId, 'index.ts'));
 
       expect(indexSource).toContain(`export { ${appId}Manifest } from './manifest.js'`);
       expect(indexSource).toContain("} from './shared.js'");
@@ -88,8 +92,8 @@ describe('app package import boundaries', () => {
       /(?:serverEntry|serverAppContract|messageStore|repository|node:fs|node:path|node:sqlite|from ['"]\.\/server(?:\.js)?['"])/;
 
     for (const appId of appIds) {
-      expect(source(`src/apps/${appId}/client.tsx`)).not.toMatch(forbiddenClientImports);
-      expect(source(`src/apps/${appId}/${appId[0].toUpperCase()}${appId.slice(1)}View.tsx`)).not.toMatch(
+      expect(source(appImplementationPath(appId, 'client.tsx'))).not.toMatch(forbiddenClientImports);
+      expect(source(appImplementationPath(appId, `${appId[0].toUpperCase()}${appId.slice(1)}View.tsx`))).not.toMatch(
         forbiddenClientImports
       );
     }
@@ -99,7 +103,7 @@ describe('app package import boundaries', () => {
     const forbiddenServerImports = /(?:\.\/client|clientAppContract|ChatView|ChessView|SnakeView|react)/;
 
     for (const appId of appIds) {
-      expect(source(`src/apps/${appId}/serverEntry.ts`)).not.toMatch(forbiddenServerImports);
+      expect(source(appImplementationPath(appId, 'serverEntry.ts'))).not.toMatch(forbiddenServerImports);
     }
   });
 
@@ -111,9 +115,11 @@ describe('app package import boundaries', () => {
   });
 
   it('keeps app server service types scoped to their own app', () => {
-    expect(source('src/apps/chat/serverEntry.ts')).not.toMatch(/chess|Chess/);
-    expect(source('src/apps/chess/serverEntry.ts')).not.toMatch(/chat|Chat|messageStore/);
-    expect(source('src/apps/snake/serverEntry.ts')).not.toMatch(/chat|Chat|chess|Chess|Repository|messageStore/);
+    expect(source(appImplementationPath('chat', 'serverEntry.ts'))).not.toMatch(/chess|Chess/);
+    expect(source(appImplementationPath('chess', 'serverEntry.ts'))).not.toMatch(/chat|Chat|messageStore/);
+    expect(source(appImplementationPath('snake', 'serverEntry.ts'))).not.toMatch(
+      /chat|Chat|chess|Chess|Repository|messageStore/
+    );
   });
 
   it('keeps registries on environment-specific platform contracts', () => {
@@ -128,11 +134,11 @@ describe('app package import boundaries', () => {
       /\.\.\/\.\.\/(?:shared\/platform|platform\/(?:app|client|serverApp|persistence|appContract|clientAppContract|serverAppContract|validation)|persistence\/sqlite)\.js?/;
 
     for (const appId of appIds) {
-      const manifest = source(`src/apps/${appId}/manifest.ts`);
-      const client = source(`src/apps/${appId}/client.tsx`);
-      const view = source(`src/apps/${appId}/${appId[0].toUpperCase()}${appId.slice(1)}View.tsx`);
-      const server = source(`src/apps/${appId}/server.ts`);
-      const serverEntry = source(`src/apps/${appId}/serverEntry.ts`);
+      const manifest = source(appImplementationPath(appId, 'manifest.ts'));
+      const client = source(appImplementationPath(appId, 'client.tsx'));
+      const view = source(appImplementationPath(appId, `${appId[0].toUpperCase()}${appId.slice(1)}View.tsx`));
+      const server = source(appImplementationPath(appId, 'server.ts'));
+      const serverEntry = source(appImplementationPath(appId, 'serverEntry.ts'));
 
       expect(manifest).toContain('@citadel/platform/app');
       expect(manifest).not.toMatch(forbiddenDeepAppImports);
@@ -243,15 +249,21 @@ describe('app package import boundaries', () => {
     expect(source('packages/platform/persistence.ts').trim()).toBe("export * from './src/persistence.js';");
 
     for (const appId of appIds) {
-      expect(source(`packages/apps/${appId}/index.ts`).trim()).toBe(
-        `export * from '../../../src/apps/${appId}/index.js';`
-      );
-      expect(source(`packages/apps/${appId}/client.ts`).trim()).toBe(
-        `export * from '../../../src/apps/${appId}/client.js';`
-      );
-      expect(source(`packages/apps/${appId}/server.ts`).trim()).toBe(
-        `export * from '../../../src/apps/${appId}/serverEntry.js';`
-      );
+      if (appId === 'snake') {
+        expect(source('packages/apps/snake/index.ts').trim()).toBe("export * from './src/index.js';");
+        expect(source('packages/apps/snake/client.ts').trim()).toBe("export * from './src/client.js';");
+        expect(source('packages/apps/snake/server.ts').trim()).toBe("export * from './src/serverEntry.js';");
+      } else {
+        expect(source(`packages/apps/${appId}/index.ts`).trim()).toBe(
+          `export * from '../../../src/apps/${appId}/index.js';`
+        );
+        expect(source(`packages/apps/${appId}/client.ts`).trim()).toBe(
+          `export * from '../../../src/apps/${appId}/client.js';`
+        );
+        expect(source(`packages/apps/${appId}/server.ts`).trim()).toBe(
+          `export * from '../../../src/apps/${appId}/serverEntry.js';`
+        );
+      }
     }
   });
 
@@ -261,5 +273,29 @@ describe('app package import boundaries', () => {
         `export * from '../../packages/platform/src/${moduleName}.js';`
       );
     }
+  });
+
+  it('keeps src snake files as thin compatibility shims', () => {
+    expect(source('src/apps/snake/index.ts').trim()).toBe(
+      "export * from '../../../packages/apps/snake/src/index.js';"
+    );
+    expect(source('src/apps/snake/manifest.ts').trim()).toBe(
+      "export * from '../../../packages/apps/snake/src/manifest.js';"
+    );
+    expect(source('src/apps/snake/shared.ts').trim()).toBe(
+      "export * from '../../../packages/apps/snake/src/shared.js';"
+    );
+    expect(source('src/apps/snake/client.tsx').trim()).toBe(
+      "export * from '../../../packages/apps/snake/src/client.js';"
+    );
+    expect(source('src/apps/snake/SnakeView.tsx').trim()).toBe(
+      "export * from '../../../packages/apps/snake/src/SnakeView.js';"
+    );
+    expect(source('src/apps/snake/server.ts').trim()).toBe(
+      "export * from '../../../packages/apps/snake/src/server.js';"
+    );
+    expect(source('src/apps/snake/serverEntry.ts').trim()).toBe(
+      "export * from '../../../packages/apps/snake/src/serverEntry.js';"
+    );
   });
 });

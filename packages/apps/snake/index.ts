@@ -1,1 +1,1 @@
-export * from '../../../src/apps/snake/index.js';
+export * from './src/index.js';

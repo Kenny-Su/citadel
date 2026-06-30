@@ -37,6 +37,7 @@ Workspace package shells exist under `packages/` as the scaffold for the source 
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` export `.`, `./client`, and `./server`.
 
 Temporary `src/platform/*` files remain as compatibility shims while the server/client shell code migrates to package imports.
+Snake is the first source-owning app package: its implementation lives under `packages/apps/snake/src`, with `src/apps/snake/*` left as temporary compatibility shims.
 
 Shared server app services stay platform-only in `src/apps/serverServices.ts`. App-specific server options, such as repository injection or chat rate limits, belong to each app server entrypoint or to the bundled registry adapter.
 
@@ -59,7 +60,8 @@ For example, a future package can map these to exports like:
 - App code imports platform contracts, shared platform helpers, and persistence APIs through `@citadel/platform/*` aliases rather than relative platform, shared, or persistence paths.
 - Registries import bundled app public surfaces through `@citadel/apps/*` aliases rather than relative app entrypoint paths.
 - Platform implementation lives in `packages/platform/src`; compatibility files under `src/platform` must stay thin re-export shims.
-- App package shell entrypoints stay thin re-export shims until app source files move into packages.
+- App package shell entrypoints stay thin re-export shims to package-local source once each app moves.
+- App compatibility files under `src/apps/<app>` must stay thin re-export shims after that app owns package source.
 - App client code must not import server entrypoints, repositories, message stores, or `node:*` modules.
 - App server entrypoints must not import React views or app client modules.
 - Server-side code must not import `clientAppContract`, and client-side code must not import `serverAppContract`.
