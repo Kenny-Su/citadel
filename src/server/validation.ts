@@ -1,5 +1,5 @@
 export {
   validateDisplayName,
-  validateMessageBody,
   type ValidationResult
-} from '../apps/chat/validation.js';
+} from '../platform/validation.js';
+export { validateMessageBody } from '../apps/chat/validation.js';

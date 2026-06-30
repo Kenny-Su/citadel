@@ -14,7 +14,7 @@ import {
   normalizeGuestId,
   normalizeSpaceId
 } from '../shared/platform.js';
-import { validateDisplayName } from '../apps/chat/validation.js';
+import { validateDisplayName } from './validation.js';
 
 export type PlatformServerOptions = {
   clientOrigin?: string;

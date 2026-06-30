@@ -1,11 +1,11 @@
 import type React from 'react';
 import type { AppEventEnvelope, AppId, Participant } from '../shared/platform';
 import type { ChatState } from '../apps/chat/shared';
-import { ChatView } from '../apps/chat/ChatView';
 import type { ChessState } from '../apps/chess/shared';
-import { ChessView } from '../apps/chess/ChessView';
 import type { SnakeState } from '../apps/snake/shared';
-import { SnakeView } from '../apps/snake/SnakeView';
+import { chatClientApp } from '../apps/chat/client';
+import { chessClientApp } from '../apps/chess/client';
+import { snakeClientApp } from '../apps/snake/client';
 
 export type AppViewProps<TState = unknown> = {
   currentParticipant: Participant;
@@ -23,26 +23,7 @@ export type ClientAppModule<TState = unknown> = {
   View: React.ComponentType<AppViewProps<TState>>;
 };
 
-export const clientApps = [
-  {
-    appId: 'chat',
-    label: 'Chat',
-    defaultSpaceId: 'general',
-    View: ChatView
-  },
-  {
-    appId: 'chess',
-    label: 'Chess',
-    defaultSpaceId: 'general',
-    View: ChessView
-  },
-  {
-    appId: 'snake',
-    label: 'Snake',
-    defaultSpaceId: 'general',
-    View: SnakeView
-  }
-] satisfies ClientAppModule<any>[];
+export const clientApps = [chatClientApp, chessClientApp, snakeClientApp] satisfies ClientAppModule<any>[];
 
 export const appById = new Map<AppId, ClientAppModule<any>>(clientApps.map((app) => [app.appId, app]));
 

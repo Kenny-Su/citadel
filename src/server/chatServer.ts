@@ -1,9 +1,7 @@
 import { createPlatformServer, type PlatformServerOptions } from '../platform/server.js';
-import { createChatApp } from '../apps/chat/server.js';
-import { createChatRepository, type ChatRepository, type MessageStore } from '../apps/chat/messageStore.js';
-import { createChessApp } from '../apps/chess/server.js';
-import { createChessRepository, type ChessRepository } from '../apps/chess/repository.js';
-import { createSnakeApp } from '../apps/snake/server.js';
+import { type ChatRepository, type MessageStore } from '../apps/chat/messageStore.js';
+import { type ChessRepository } from '../apps/chess/repository.js';
+import { createBundledServerApps, resolveBundledRepositories } from '../apps/serverRegistry.js';
 import { openCitadelDatabase, type CitadelDatabase } from '../persistence/sqlite.js';
 
 export type ChatServerOptions = Omit<PlatformServerOptions, 'apps'> & {
@@ -25,29 +23,24 @@ export function createChatServer(options: ChatServerOptions | string = {}) {
       ? openCitadelDatabase(process.env.CHAT_DB_PATH ?? 'data/citadel.sqlite')
       : (options.database ??
         openCitadelDatabase(process.env.CHAT_DB_PATH ?? process.env.CITADEL_DB_PATH ?? 'data/citadel.sqlite'));
-  const chatRepository =
-    typeof options === 'string'
-      ? createChatRepository(database.database)
-      : (options.chatRepository ?? options.messageStore ?? createChatRepository(database.database));
-  const chessRepository =
-    typeof options === 'string'
-      ? createChessRepository(database.database)
-      : (options.chessRepository ?? createChessRepository(database.database));
+  const services = {
+    database,
+    chatRepository: typeof options === 'string' ? undefined : options.chatRepository,
+    chessRepository: typeof options === 'string' ? undefined : options.chessRepository,
+    messageStore: typeof options === 'string' ? undefined : options.messageStore,
+    messageRateLimit: typeof options === 'string' ? undefined : options.messageRateLimit
+  };
+  const { chatRepository, chessRepository } = resolveBundledRepositories(services);
 
   return {
     ...createPlatformServer({
       clientOrigin,
       staticDir: typeof options === 'string' ? undefined : options.staticDir,
-      apps: [
-        createChatApp({
-          repository: chatRepository,
-          messageRateLimit: typeof options === 'string' ? undefined : options.messageRateLimit
-        }),
-        createChessApp({
-          repository: chessRepository
-        }),
-        createSnakeApp()
-      ]
+      apps: createBundledServerApps({
+        ...services,
+        chatRepository,
+        chessRepository
+      })
     }),
     database,
     messageStore: chatRepository,

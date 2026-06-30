@@ -2,11 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPlatformServer } from '../platform/server.js';
-import { createChatApp } from '../apps/chat/server.js';
-import { createChessApp } from '../apps/chess/server.js';
-import { createSnakeApp } from '../apps/snake/server.js';
-import { createChatRepository } from '../apps/chat/messageStore.js';
-import { createChessRepository } from '../apps/chess/repository.js';
+import { createBundledServerApps } from '../apps/serverRegistry.js';
 import { openCitadelDatabase } from '../persistence/sqlite.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -20,15 +16,9 @@ const citadelDatabase = openCitadelDatabase(dbPath);
 const { httpServer } = createPlatformServer({
   clientOrigin: CLIENT_ORIGIN,
   staticDir: existsSync(resolve(staticDir, 'index.html')) ? staticDir : undefined,
-  apps: [
-    createChatApp({
-      repository: createChatRepository(citadelDatabase.database)
-    }),
-    createChessApp({
-      repository: createChessRepository(citadelDatabase.database)
-    }),
-    createSnakeApp()
-  ]
+  apps: createBundledServerApps({
+    database: citadelDatabase
+  })
 });
 
 httpServer.listen(PORT, HOST, () => {
