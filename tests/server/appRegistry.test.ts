@@ -26,12 +26,15 @@ import {
   type ChessRepository
 } from '@citadel/app-chess/server';
 import {
+  chatAppPackage as publicChatAppPackage,
   chatManifest as publicChatManifest
 } from '@citadel/app-chat';
 import {
+  chessAppPackage as publicChessAppPackage,
   chessManifest as publicChessManifest
 } from '@citadel/app-chess';
 import {
+  snakeAppPackage as publicSnakeAppPackage,
   snakeManifest as publicSnakeManifest
 } from '@citadel/app-snake';
 import { snakeServerRegistration as publicSnakeServerRegistration } from '@citadel/app-snake/server';
@@ -59,6 +62,11 @@ describe('bundled server app registry', () => {
   it('exposes bundled manifests in app order', () => {
     expect(bundledAppDefinitions.map((definition) => definition.appId)).toEqual(bundledAppIds);
     expect(bundledAppDefinitions.map((definition) => definition.manifest)).toEqual(bundledAppManifests);
+    expect(bundledAppDefinitions.map((definition) => definition.packageName)).toEqual([
+      '@citadel/app-chat',
+      '@citadel/app-chess',
+      '@citadel/app-snake'
+    ]);
     expect(bundledAppManifests).toEqual([
       {
         appId: 'chat',
@@ -93,6 +101,31 @@ describe('bundled server app registry', () => {
       'chat',
       'chess',
       'snake'
+    ]);
+    expect([publicChatAppPackage, publicChessAppPackage, publicSnakeAppPackage].map((appPackage) => ({
+      appId: appPackage.appId,
+      packageName: appPackage.packageName,
+      client: appPackage.client.registrationExport,
+      server: appPackage.server.registrationExport
+    }))).toEqual([
+      {
+        appId: 'chat',
+        packageName: '@citadel/app-chat',
+        client: 'chatClientRegistration',
+        server: 'chatServerRegistration'
+      },
+      {
+        appId: 'chess',
+        packageName: '@citadel/app-chess',
+        client: 'chessClientRegistration',
+        server: 'chessServerRegistration'
+      },
+      {
+        appId: 'snake',
+        packageName: '@citadel/app-snake',
+        client: 'snakeClientRegistration',
+        server: 'snakeServerRegistration'
+      }
     ]);
     const registrations = [
       publicChatServerRegistration,

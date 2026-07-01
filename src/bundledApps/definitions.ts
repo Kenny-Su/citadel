@@ -1,17 +1,14 @@
-import type { AppId, AppManifest } from '@citadel/platform/app';
-import { chatManifest } from '@citadel/app-chat';
-import { chessManifest } from '@citadel/app-chess';
-import { snakeManifest } from '@citadel/app-snake';
+import type { AppId, AppManifest, AppPackageDescriptor } from '@citadel/platform/app';
+import { chatAppPackage } from '@citadel/app-chat';
+import { chessAppPackage } from '@citadel/app-chess';
+import { snakeAppPackage } from '@citadel/app-snake';
 
-export type BundledAppDefinition = {
-  appId: AppId;
-  manifest: AppManifest;
-};
+export type BundledAppDefinition = AppPackageDescriptor;
 
 export const bundledAppDefinitions: BundledAppDefinition[] = [
-  { appId: chatManifest.appId, manifest: chatManifest },
-  { appId: chessManifest.appId, manifest: chessManifest },
-  { appId: snakeManifest.appId, manifest: snakeManifest }
+  chatAppPackage,
+  chessAppPackage,
+  snakeAppPackage
 ] satisfies BundledAppDefinition[];
 
 export const bundledAppIds: AppId[] = bundledAppDefinitions.map((definition) => definition.appId);

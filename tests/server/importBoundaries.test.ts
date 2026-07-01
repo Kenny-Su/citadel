@@ -118,7 +118,7 @@ const publicRuntimeExports = {
   '@citadel/platform/persistence': ['openCitadelDatabase'],
   '@citadel/platform/server': ['createPlatformServer'],
   '@citadel/platform/validation': ['validateDisplayName'],
-  '@citadel/app-chat': ['MESSAGE_HISTORY_LIMIT', 'MESSAGE_MAX_LENGTH', 'chatManifest'],
+  '@citadel/app-chat': ['MESSAGE_HISTORY_LIMIT', 'MESSAGE_MAX_LENGTH', 'chatAppPackage', 'chatManifest'],
   '@citadel/app-chat/client': ['chatClientApp', 'chatClientRegistration'],
   '@citadel/app-chat/server': [
     'chatServerBundle',
@@ -129,7 +129,7 @@ const publicRuntimeExports = {
     'resolveChatRepository'
   ],
   '@citadel/app-chat/validation': ['validateMessageBody'],
-  '@citadel/app-chess': ['chessManifest'],
+  '@citadel/app-chess': ['chessAppPackage', 'chessManifest'],
   '@citadel/app-chess/client': ['chessClientApp', 'chessClientRegistration'],
   '@citadel/app-chess/server': [
     'chessServerBundle',
@@ -138,7 +138,7 @@ const publicRuntimeExports = {
     'createChessServerAppFromServices',
     'resolveChessRepository'
   ],
-  '@citadel/app-snake': ['snakeManifest'],
+  '@citadel/app-snake': ['snakeAppPackage', 'snakeManifest'],
   '@citadel/app-snake/client': ['snakeClientApp', 'snakeClientRegistration'],
   '@citadel/app-snake/server': [
     'createSnakeServerAppFromServices',
@@ -197,9 +197,12 @@ describe('app package import boundaries', () => {
       const indexSource = source(appImplementationPath(appId, 'index.ts'));
 
       expect(indexSource).toContain(`export { ${appId}Manifest } from './manifest.js'`);
+      expect(indexSource).toContain(`export const ${appId}AppPackage`);
       expect(indexSource).toContain("} from './shared.js'");
+      expect(indexSource).not.toMatch(/from ['"]\.\/client(?:\.js)?['"]/);
+      expect(indexSource).not.toMatch(/from ['"]\.\/serverEntry(?:\.js)?['"]/);
       expect(indexSource).not.toMatch(
-        /client|serverEntry|ServerBundle|Repository|messageStore|repository|validation|create[A-Z].*App/
+        /ServerBundle|Repository|messageStore|repository|validation|create[A-Z].*App/
       );
     }
   });

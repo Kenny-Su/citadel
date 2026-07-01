@@ -7,3 +7,17 @@ export type AppManifest = {
   persistence: 'none' | 'sqlite';
   version: string;
 };
+
+export type AppPackageDescriptor = {
+  appId: AppId;
+  manifest: AppManifest;
+  packageName: string;
+  client: {
+    subpath: './client';
+    registrationExport: string;
+  };
+  server: {
+    subpath: './server';
+    registrationExport: string;
+  };
+};

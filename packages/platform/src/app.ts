@@ -1,4 +1,4 @@
-export type { AppManifest } from './appContract.js';
+export type { AppManifest, AppPackageDescriptor } from './appContract.js';
 export {
   DEFAULT_SPACE_ID,
   DISPLAY_NAME_MAX_LENGTH,
