@@ -11,7 +11,7 @@ import {
   getEnabledAppIds,
   resolveBundledRepositories
 } from '../../src/bundledApps/serverRegistry.js';
-import { bundledAppIds } from '../../src/bundledApps/catalog.js';
+import { bundledAppDefinitions, bundledAppIds } from '../../src/bundledApps/catalog.js';
 import { openCitadelDatabase, type CitadelDatabase } from '@citadel/platform/persistence';
 import type { ChatRepository } from '@citadel/app-chat/server';
 import type { ChessRepository } from '@citadel/app-chess/server';
@@ -49,6 +49,8 @@ describe('bundled server app registry', () => {
   });
 
   it('exposes bundled manifests in app order', () => {
+    expect(bundledAppDefinitions.map((definition) => definition.appId)).toEqual(bundledAppIds);
+    expect(bundledAppDefinitions.map((definition) => definition.manifest)).toEqual(bundledAppManifests);
     expect(bundledAppManifests).toEqual([
       {
         appId: 'chat',

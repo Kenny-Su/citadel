@@ -10,7 +10,7 @@ Each bundled app exposes three environment-specific surfaces:
 - `packages/apps/<app>/src/client.tsx`: browser `ClientAppModule` and view wiring.
 - `packages/apps/<app>/src/serverEntry.ts`: server bundle, repository resolver, and server-only exports.
 
-Bundled app order and host assembly are owned by `src/bundledApps`. Client and server registries derive their ordered app lists from that neutral bundled catalog.
+Bundled app order and neutral manifests are owned by `src/bundledApps/definitions.ts`. Client and server registries derive their ordered app lists from that neutral bundled definition list, while keeping client modules and server bundles in environment-specific registry files.
 
 Platform contracts are split by environment inside `packages/platform/src`:
 
@@ -68,8 +68,9 @@ Package exports map each public surface to built JavaScript and declarations, fo
 ## Import Rules
 
 - Platform core imports only platform contracts and generic server modules. It must not import concrete app internals.
+- The neutral bundled definition list imports app manifests only.
 - The client registry imports app client entrypoints plus neutral shared types.
-- The server registry imports neutral manifests plus app server entrypoints.
+- The server registry imports app server entrypoints and owns server-only app service adapters.
 - Neutral app indexes do not export client modules, server bundles, repositories, repository resolvers, or implementation factories.
 - App code imports platform contracts, shared platform helpers, and persistence APIs through `@citadel/platform/*` aliases rather than relative platform, shared, or persistence paths.
 - Registries import bundled app public surfaces through `@citadel/app-*` package aliases rather than relative app entrypoint paths.

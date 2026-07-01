@@ -48,11 +48,49 @@ type BundledServerAppBundle =
   | typeof chessServerBundle
   | typeof snakeServerBundle;
 
-export const bundledServerAppBundles: BundledServerAppBundle[] = orderBundledAppEntries({
-  chat: chatServerBundle,
-  chess: chessServerBundle,
-  snake: snakeServerBundle
-});
+type BundledRepositoryServices = ReturnType<typeof resolveBundledRepositories>;
+
+type BundledServerAppDefinition = {
+  appId: AppId;
+  bundle: BundledServerAppBundle;
+  createServerApp(services: BundledServerAppServices, repositories: BundledRepositoryServices): ServerAppModule;
+};
+
+const bundledServerAppDefinitions = orderBundledAppEntries({
+  chat: {
+    appId: chatServerBundle.appId,
+    bundle: chatServerBundle,
+    createServerApp(services: BundledServerAppServices, repositories: BundledRepositoryServices) {
+      return chatServerBundle.createServerApp({
+        database: services.database,
+        chatRepository: repositories.chatRepository,
+        messageStore: services.messageStore,
+        messageRateLimit: services.messageRateLimit
+      } satisfies ChatServerAppServices);
+    }
+  },
+  chess: {
+    appId: chessServerBundle.appId,
+    bundle: chessServerBundle,
+    createServerApp(services: BundledServerAppServices, repositories: BundledRepositoryServices) {
+      return chessServerBundle.createServerApp({
+        database: services.database,
+        chessRepository: repositories.chessRepository
+      } satisfies ChessServerAppServices);
+    }
+  },
+  snake: {
+    appId: snakeServerBundle.appId,
+    bundle: snakeServerBundle,
+    createServerApp(services: BundledServerAppServices) {
+      return snakeServerBundle.createServerApp({
+        database: services.database
+      } satisfies ServerAppServices);
+    }
+  }
+}) satisfies BundledServerAppDefinition[];
+
+export const bundledServerAppBundles = bundledServerAppDefinitions.map((definition) => definition.bundle);
 
 export function getEnabledAppIds(input?: string): AppId[] {
   if (!input?.trim()) {
@@ -77,9 +115,7 @@ export function getEnabledAppIds(input?: string): AppId[] {
 }
 
 export function filterServerAppBundles(enabledAppIds: AppId[]) {
-  return enabledAppIds
-    .map((appId) => bundledServerAppBundles.find((bundle) => bundle.appId === appId))
-    .filter((bundle): bundle is (typeof bundledServerAppBundles)[number] => Boolean(bundle));
+  return filterServerAppDefinitions(enabledAppIds).map((definition) => definition.bundle);
 }
 
 export function filterAppManifests(enabledAppIds: AppId[]) {
@@ -88,37 +124,17 @@ export function filterAppManifests(enabledAppIds: AppId[]) {
     .filter((manifest): manifest is AppManifest => Boolean(manifest));
 }
 
+function filterServerAppDefinitions(enabledAppIds: AppId[]) {
+  return enabledAppIds
+    .map((appId) => bundledServerAppDefinitions.find((definition) => definition.appId === appId))
+    .filter((definition): definition is (typeof bundledServerAppDefinitions)[number] => Boolean(definition));
+}
+
 export function createBundledServerApps(services: BundledServerAppServices): ServerAppModule[] {
   const repositories = resolveBundledRepositories(services);
-  const bundles = services.enabledAppIds
-    ? filterServerAppBundles(services.enabledAppIds)
-    : bundledServerAppBundles;
+  const definitions = services.enabledAppIds
+    ? filterServerAppDefinitions(services.enabledAppIds)
+    : bundledServerAppDefinitions;
 
-  const servicesByAppId = {
-    chat: {
-      database: services.database,
-      chatRepository: repositories.chatRepository,
-      messageStore: services.messageStore,
-      messageRateLimit: services.messageRateLimit
-    } satisfies ChatServerAppServices,
-    chess: {
-      database: services.database,
-      chessRepository: repositories.chessRepository
-    } satisfies ChessServerAppServices,
-    snake: {
-      database: services.database
-    } satisfies ServerAppServices
-  };
-
-  return bundles.map((bundle) => {
-    if (bundle.appId === 'chat') {
-      return chatServerBundle.createServerApp(servicesByAppId.chat);
-    }
-
-    if (bundle.appId === 'chess') {
-      return chessServerBundle.createServerApp(servicesByAppId.chess);
-    }
-
-    return snakeServerBundle.createServerApp(servicesByAppId.snake);
-  });
+  return definitions.map((definition) => definition.createServerApp(services, repositories));
 }

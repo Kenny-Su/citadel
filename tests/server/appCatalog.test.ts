@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bundledAppDefinitions,
   bundledAppIds,
   bundledAppManifests,
+  getBundledAppDefinition,
   getBundledAppManifest,
   orderBundledAppEntries
 } from '../../src/bundledApps/catalog.js';
@@ -12,6 +14,8 @@ describe('bundled app catalog', () => {
   });
 
   it('exposes manifests in bundled app order', () => {
+    expect(bundledAppDefinitions.map((definition) => definition.appId)).toEqual(bundledAppIds);
+    expect(bundledAppDefinitions.map((definition) => definition.manifest)).toEqual(bundledAppManifests);
     expect(bundledAppManifests.map((manifest) => manifest.appId)).toEqual(bundledAppIds);
     expect(bundledAppManifests).toEqual([
       {
@@ -39,6 +43,7 @@ describe('bundled app catalog', () => {
   });
 
   it('looks up bundled manifests by app id', () => {
+    expect(getBundledAppDefinition('chess')?.manifest.label).toBe('Chess');
     expect(getBundledAppManifest('chess')?.label).toBe('Chess');
   });
 

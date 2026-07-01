@@ -61,6 +61,13 @@ const deletedCompatibilityPaths = [
   'src/shared/platform.ts'
 ] as const;
 
+const bundledAppAssemblyFiles = [
+  'src/bundledApps/definitions.ts',
+  'src/bundledApps/catalog.ts',
+  'src/bundledApps/serverRegistry.ts',
+  'src/client/appRegistry.tsx'
+] as const;
+
 function source(path: string) {
   return readFileSync(join(process.cwd(), path), 'utf8');
 }
@@ -493,14 +500,28 @@ describe('app package import boundaries', () => {
   });
 
   it('keeps bundled app assembly on public app package surfaces', () => {
+    const definitions = source('src/bundledApps/definitions.ts');
     const catalog = source('src/bundledApps/catalog.ts');
     const serverRegistry = source('src/bundledApps/serverRegistry.ts');
+    const clientRegistry = source('src/client/appRegistry.tsx');
 
     for (const appId of appIds) {
-      expect(catalog).toContain(`from '@citadel/app-${appId}'`);
+      expect(definitions).toContain(`from '@citadel/app-${appId}'`);
+      expect(definitions).not.toContain(`@citadel/app-${appId}/client`);
+      expect(definitions).not.toContain(`@citadel/app-${appId}/server`);
+      expect(catalog).not.toContain(`from '@citadel/app-${appId}'`);
       expect(catalog).not.toContain(`@citadel/apps/${appId}`);
       expect(serverRegistry).toContain(`from '@citadel/app-${appId}/server'`);
+      expect(serverRegistry).not.toContain(`@citadel/app-${appId}/client`);
       expect(serverRegistry).not.toContain(`@citadel/apps/${appId}`);
+      expect(clientRegistry).toContain(`from '@citadel/app-${appId}/client'`);
+      expect(clientRegistry).not.toContain(`@citadel/app-${appId}/server`);
+    }
+    expect(catalog).toContain("from './definitions.js'");
+    expect(serverRegistry).toContain('orderBundledAppEntries');
+    expect(clientRegistry).toContain('orderBundledAppEntries');
+    for (const assemblyFile of bundledAppAssemblyFiles) {
+      expect(source(assemblyFile)).not.toMatch(/(?:\.\.\/apps|src\/apps|packages\/apps)\/(?:chat|chess|snake)\//);
     }
     expect(catalog).not.toMatch(/(?:\.\.\/apps|src\/apps|packages\/apps)\/(?:chat|chess|snake)\//);
     expect(serverRegistry).not.toMatch(/(?:\.\.\/apps|src\/apps|packages\/apps)\/(?:chat|chess|snake)\//);

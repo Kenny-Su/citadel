@@ -10,11 +10,13 @@ import { snakeClientApp } from '@citadel/app-snake/client';
 
 export type { AppViewProps, ClientAppModule } from '@citadel/platform/client';
 
-export const allClientApps = orderBundledAppEntries({
+const bundledClientAppDefinitions = orderBundledAppEntries({
   chat: chatClientApp,
   chess: chessClientApp,
   snake: snakeClientApp
-}) satisfies ClientAppModule<any>[];
+});
+
+export const allClientApps = bundledClientAppDefinitions.map((app) => app) satisfies ClientAppModule<any>[];
 
 export const clientApps = allClientApps;
 
