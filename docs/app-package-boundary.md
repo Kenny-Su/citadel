@@ -10,7 +10,7 @@ Each bundled app exposes three environment-specific surfaces:
 - `packages/apps/<app>/src/client.tsx`: browser client registration, `ClientAppModule`, and view wiring.
 - `packages/apps/<app>/src/serverEntry.ts`: server registration, bundle, repository resolver, and server-only exports.
 
-Bundled app order is declared as installed package names in `bundled-apps.json`. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. `src/bundledApps/config.ts` validates the selection data, generated resolver data mirrors the selected package metadata, and `src/bundledApps/definitions.ts` derives ordered manifests from that descriptor list. Client and server registries derive their ordered app lists from the descriptor list, while keeping client and server registrations in environment-specific package surfaces.
+Bundled app order is declared as installed package names in `bundled-apps.json`. Local app packages that need monorepo build/watch support are declared separately in `workspace-apps.json`; this is a development convenience, not runtime selection. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. `src/bundledApps/config.ts` validates the selection data, generated resolver data mirrors the selected package metadata, and `src/bundledApps/definitions.ts` derives ordered manifests from that descriptor list. Client and server registries derive their ordered app lists from the descriptor list, while keeping client and server registrations in environment-specific package surfaces.
 
 Platform contracts are split by environment inside `packages/platform/src`:
 
@@ -40,7 +40,7 @@ Workspace packages exist under `packages/` as the current local development shap
 - Each workspace package has a package-local no-emit TypeScript check. These checks prove package isolation without producing JavaScript or declarations.
 - Each workspace package also has a local package build that emits JavaScript and declarations into its ignored `dist/` directory. Package `exports` point at those built artifacts, and the host consumes packages through workspace package resolution rather than source aliases.
 - App package artifacts are built-package artifacts: npm pack allowlists `dist` plus `package.json`, so source files and TypeScript build configs are development inputs rather than external dependency contents.
-- Local development prebuilds these package artifacts once, then runs package build watchers alongside the server and Vite client so `dist/` exports stay fresh during edits.
+- Local development prebuilds local workspace app artifacts once, then runs configured workspace app build watchers alongside the platform watcher, server, and Vite client so local `dist/` exports stay fresh during edits.
 
 Shared platform payloads and SQLite persistence are platform-owned under `packages/platform/src`.
 All bundled apps are source-owning workspace packages: their implementations live under `packages/apps/<app>/src`.
@@ -72,6 +72,7 @@ Package exports map each public surface to built JavaScript and declarations, fo
 
 - Platform core imports only platform contracts and generic server modules. It must not import concrete app internals.
 - `bundled-apps.json` declares installed app package names only.
+- `workspace-apps.json` declares local app packages that root build/watch scripts should build; installed external apps do not need to appear there.
 - App `package.json` files declare Citadel metadata, including manifest data and client/server registration subpaths and export names.
 - App package artifacts expose runtime code through package `exports` that point at built `dist` JavaScript and declaration files.
 - The neutral bundled app config validates the JSON selection data.

@@ -106,6 +106,10 @@ type BundledAppsJson = {
   packages: string[];
 };
 
+type WorkspaceAppsJson = {
+  packages: string[];
+};
+
 type CitadelPackageMetadata = {
   appId: string;
   label: string;
@@ -421,8 +425,9 @@ describe('app package import boundaries', () => {
       'concurrently "npm run dev:packages" "npm run dev:server" "npm run dev:client"'
     );
     expect(rootPackage.scripts['dev:packages']).toBe(
-      'concurrently "npm run build:watch -w @citadel/platform" "npm run build:watch -w @citadel/app-chat" "npm run build:watch -w @citadel/app-chess" "npm run build:watch -w @citadel/app-snake"'
+      'concurrently "npm run build:watch -w @citadel/platform" "npm run dev:workspace-apps"'
     );
+    expect(rootPackage.scripts['dev:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs build:watch');
     expect(rootPackage.scripts['dev:server']).toBe('tsx watch src/server/index.ts');
     expect(rootPackage.scripts['dev:client']).toBe('vite --host 0.0.0.0');
     expect(rootPackage.scripts.prestart).toBe('npm run generate:bundled-apps && npm run build:packages');
@@ -431,11 +436,9 @@ describe('app package import boundaries', () => {
     expect(rootPackage.scripts.build).toBe(
       'npm run generate:bundled-apps && npm run build:packages && npm run typecheck && npm run build:client'
     );
-    expect(rootPackage.scripts['build:packages']).toBe('npm run build:platform && npm run build:apps');
+    expect(rootPackage.scripts['build:packages']).toBe('npm run build:platform && npm run build:workspace-apps');
     expect(rootPackage.scripts['build:platform']).toBe('npm run build -w @citadel/platform');
-    expect(rootPackage.scripts['build:apps']).toBe(
-      'npm run build -w @citadel/app-chat && npm run build -w @citadel/app-chess && npm run build -w @citadel/app-snake'
-    );
+    expect(rootPackage.scripts['build:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs build');
     expect(rootPackage.scripts['clean:packages']).toBe('npm run clean --workspaces --if-present');
     expect(rootPackage.workspaces).toEqual([...packagePaths]);
     expect(platformPackage.name).toBe('@citadel/platform');
@@ -617,6 +620,7 @@ describe('app package import boundaries', () => {
 
   it('keeps bundled app assembly on public app package surfaces', () => {
     const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
+    const workspaceApps = jsonSource<WorkspaceAppsJson>('workspace-apps.json');
     const config = source('src/bundledApps/config.ts');
     const definitions = source('src/bundledApps/definitions.ts');
     const generator = source('scripts/generate-bundled-apps.mjs');
@@ -633,6 +637,7 @@ describe('app package import boundaries', () => {
       '@citadel/app-chess',
       '@citadel/app-snake'
     ]);
+    expect(workspaceApps.packages).toEqual(bundledApps.packages);
     expect(config).toContain("from '../../bundled-apps.json'");
     expect(config).not.toContain("'@citadel/app-chat'");
     expect(config).not.toContain("'@citadel/app-chess'");
