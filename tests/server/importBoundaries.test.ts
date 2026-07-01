@@ -335,6 +335,19 @@ describe('app package import boundaries', () => {
     expect(registry).not.toMatch(/resolveChatRepository|resolveChessRepository|resolveBundledRepositories/);
   });
 
+  it('keeps legacy app repository coupling isolated from chat server wiring', () => {
+    const chatServer = source('src/server/chatServer.ts');
+    const legacyRepositories = source('src/server/legacyAppRepositories.ts');
+
+    expect(chatServer).toContain("from './legacyAppRepositories.js'");
+    expect(chatServer).not.toContain('@citadel/app-chat/server');
+    expect(chatServer).not.toContain('@citadel/app-chess/server');
+    expect(chatServer).not.toMatch(/resolveChatRepository|resolveChessRepository/);
+    expect(legacyRepositories).toContain('@citadel/app-chat/server');
+    expect(legacyRepositories).toContain('@citadel/app-chess/server');
+    expect(legacyRepositories).toMatch(/resolveChatRepository|resolveChessRepository/);
+  });
+
   it('keeps app client code away from server-only surfaces', () => {
     const forbiddenClientImports =
       /(?:serverEntry|serverAppContract|messageStore|repository|node:fs|node:path|node:sqlite|from ['"]\.\/server(?:\.js)?['"])/;
