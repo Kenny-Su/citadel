@@ -7,6 +7,10 @@ export type ChessServerAppServices = ServerAppServices & {
   chessRepository?: ChessRepository;
 };
 
+type ChessServerAppServiceInput = ServerAppServices & {
+  chessRepository?: unknown;
+};
+
 export {
   createChessRepository,
   type ChessRepository,
@@ -18,8 +22,8 @@ export function resolveChessRepository(services: ChessServerAppServices) {
   return services.chessRepository ?? createChessRepository(services.database.database);
 }
 
-export function createChessServerAppFromServices(services: ChessServerAppServices) {
-  return chessServerBundle.createServerApp(services);
+export function createChessServerAppFromServices(services: ChessServerAppServiceInput) {
+  return chessServerBundle.createServerApp(services as ChessServerAppServices);
 }
 
 export const chessServerBundle = {

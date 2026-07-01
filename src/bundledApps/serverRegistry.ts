@@ -6,25 +6,16 @@ import {
   bundledAppIds,
   bundledAppManifests
 } from './catalog.js';
-import {
-  type ChatRateLimitOptions,
-  type ChatRepository,
-  type MessageStore
-} from '@citadel/app-chat/server';
-import {
-  type ChessRepository
-} from '@citadel/app-chess/server';
 import { bundledServerRegistrationByPackageName } from './generatedServerRegistry.js';
 import type { ServerAppServices } from './serverServices.js';
 
-export type { ChatRateLimitOptions } from '@citadel/app-chat/server';
 export type { ServerAppServices } from './serverServices.js';
 
 export type BundledServerAppServices = ServerAppServices & {
-  chatRepository?: ChatRepository;
-  chessRepository?: ChessRepository;
-  messageStore?: MessageStore;
-  messageRateLimit?: ChatRateLimitOptions;
+  chatRepository?: unknown;
+  chessRepository?: unknown;
+  messageStore?: unknown;
+  messageRateLimit?: unknown;
   enabledAppIds?: AppId[];
 };
 

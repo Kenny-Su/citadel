@@ -321,6 +321,7 @@ describe('app package import boundaries', () => {
       expect(generatedRegistry).toContain(`${appId}ServerRegistration`);
       expect(registry).not.toContain(`${appId}ServerRegistration`);
       expect(registry).not.toContain(`@citadel/app-${appId}/client`);
+      expect(registry).not.toContain(`@citadel/app-${appId}/server`);
       expect(registry).not.toContain(`@citadel/apps/${appId}`);
     }
     expect(registry).not.toMatch(
@@ -677,6 +678,7 @@ describe('app package import boundaries', () => {
       expect(catalog).not.toContain(`@citadel/apps/${appId}`);
       expect(serverRegistry).not.toContain(`${appId}ServerRegistration`);
       expect(serverRegistry).not.toContain(`@citadel/app-${appId}/client`);
+      expect(serverRegistry).not.toContain(`@citadel/app-${appId}/server`);
       expect(serverRegistry).not.toContain(`@citadel/apps/${appId}`);
       expect(clientRegistry).not.toContain(`from '@citadel/app-${appId}'`);
       expect(clientRegistry).not.toContain(`from '@citadel/app-${appId}/client'`);
