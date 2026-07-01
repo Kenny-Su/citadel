@@ -39,6 +39,7 @@ Workspace packages exist under `packages/` as the current local development shap
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` export `.`, `./client`, and `./server`.
 - Each workspace package has a package-local no-emit TypeScript check. These checks prove package isolation without producing JavaScript or declarations.
 - Each workspace package also has a local package build that emits JavaScript and declarations into its ignored `dist/` directory. Package `exports` point at those built artifacts, and the host consumes packages through workspace package resolution rather than source aliases.
+- App package artifacts are built-package artifacts: npm pack allowlists `dist` plus `package.json`, so source files and TypeScript build configs are development inputs rather than external dependency contents.
 - Local development prebuilds these package artifacts once, then runs package build watchers alongside the server and Vite client so `dist/` exports stay fresh during edits.
 
 Shared platform payloads and SQLite persistence are platform-owned under `packages/platform/src`.
@@ -72,6 +73,7 @@ Package exports map each public surface to built JavaScript and declarations, fo
 - Platform core imports only platform contracts and generic server modules. It must not import concrete app internals.
 - `bundled-apps.json` declares installed app package names only.
 - App `package.json` files declare Citadel metadata, including manifest data and client/server registration subpaths and export names.
+- App package artifacts expose runtime code through package `exports` that point at built `dist` JavaScript and declaration files.
 - The neutral bundled app config validates the JSON selection data.
 - `src/bundledApps/generatedResolver.ts` is generated from app package manifest metadata and must not statically import configured app package descriptors.
 - The handwritten bundled app resolver owns validation and imports the generated descriptor map.

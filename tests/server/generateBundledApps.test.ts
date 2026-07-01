@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error The generator is a Node ESM script exercised directly by Vitest.
-import { generateClientRegistry, generateServerRegistry, resolveAppPackages, resolveInstalledPackageJsonPath, validatePackageName } from '../../scripts/generate-bundled-apps.mjs';
+import { generateClientRegistry, generateDescriptorResolver, generateServerRegistry, resolveAppPackages, resolveInstalledPackageJsonPath, runGenerator, validatePackageName } from '../../scripts/generate-bundled-apps.mjs';
 
 const validCitadelMetadata = {
   appId: 'demo',
@@ -29,6 +30,43 @@ function writePackage(rootDir: string, packageName: string, packageJson: Record<
     citadel: validCitadelMetadata,
     ...packageJson
   }, null, 2));
+}
+
+type PackFile = {
+  path: string;
+};
+
+type PackResult = {
+  filename: string;
+  files: PackFile[];
+};
+
+function runNpm(args: string[], options: { cacheDir: string }) {
+  return execFileSync('npm', args, {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      npm_config_cache: options.cacheDir
+    },
+    encoding: 'utf8'
+  });
+}
+
+function packSnake(options: { cacheDir: string; destinationDir: string }) {
+  const packOutput = runNpm([
+    'pack',
+    '--json',
+    '--pack-destination',
+    options.destinationDir,
+    '-w',
+    '@citadel/app-snake'
+  ], { cacheDir: options.cacheDir });
+  const [packResult] = JSON.parse(packOutput) as PackResult[];
+
+  return {
+    packResult,
+    tarballPath: join(options.destinationDir, packResult.filename)
+  };
 }
 
 describe('bundled app generator package resolution', () => {
@@ -143,5 +181,123 @@ describe('bundled app generator package resolution', () => {
     expect(() => resolveAppPackages({
       packages: ['@example/app-a', '@example/app-b']
     }, { rootDir: tempDir })).toThrow('Duplicate bundled app id: demo');
+  });
+
+  it('packs snake as a built package artifact without source files', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+    const cacheDir = join(tempDir, 'npm-cache');
+
+    runNpm(['run', 'build', '-w', '@citadel/app-snake'], { cacheDir });
+    const packOutput = runNpm(['pack', '--dry-run', '--json', '-w', '@citadel/app-snake'], { cacheDir });
+    const [packResult] = JSON.parse(packOutput) as PackResult[];
+    const packedFiles = packResult.files.map((file) => file.path).sort();
+
+    expect(packedFiles).toContain('package.json');
+    expect(packedFiles).toContain('dist/index.js');
+    expect(packedFiles).toContain('dist/index.d.ts');
+    expect(packedFiles).toContain('dist/client.js');
+    expect(packedFiles).toContain('dist/client.d.ts');
+    expect(packedFiles).toContain('dist/server.js');
+    expect(packedFiles).toContain('dist/server.d.ts');
+    expect(packedFiles.some((file) => file.startsWith('src/'))).toBe(false);
+    expect(packedFiles).not.toContain('index.ts');
+    expect(packedFiles).not.toContain('client.ts');
+    expect(packedFiles).not.toContain('server.ts');
+    expect(packedFiles).not.toContain('tsconfig.json');
+    expect(packedFiles).not.toContain('tsconfig.build.json');
+  });
+
+  it('generates bundled app registries from a packed snake dependency install', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+    const cacheDir = join(tempDir, 'npm-cache');
+    const packDir = join(tempDir, 'packs');
+    const extractDir = join(tempDir, 'extract');
+    const hostDir = join(tempDir, 'host');
+    const installedSnakeDir = join(hostDir, 'node_modules/@citadel/app-snake');
+    const generatedResolverPath = join(hostDir, 'src/bundledApps/generatedResolver.ts');
+    const generatedClientPath = join(hostDir, 'src/client/generatedAppRegistry.ts');
+    const generatedServerPath = join(hostDir, 'src/bundledApps/generatedServerRegistry.ts');
+    mkdirSync(packDir, { recursive: true });
+    mkdirSync(extractDir, { recursive: true });
+    mkdirSync(dirname(generatedResolverPath), { recursive: true });
+    mkdirSync(dirname(generatedClientPath), { recursive: true });
+    mkdirSync(dirname(generatedServerPath), { recursive: true });
+
+    runNpm(['run', 'build', '-w', '@citadel/app-snake'], { cacheDir });
+    const { tarballPath } = packSnake({ cacheDir, destinationDir: packDir });
+    execFileSync('tar', ['-xzf', tarballPath, '-C', extractDir]);
+    mkdirSync(dirname(installedSnakeDir), { recursive: true });
+    cpSync(join(extractDir, 'package'), installedSnakeDir, { recursive: true });
+    writeFileSync(join(hostDir, 'bundled-apps.json'), JSON.stringify({
+      packages: ['@citadel/app-snake']
+    }, null, 2));
+
+    runGenerator({
+      rootDir: hostDir,
+      configPath: join(hostDir, 'bundled-apps.json'),
+      outputs: [
+        {
+          path: generatedResolverPath,
+          generate: generateDescriptorResolver
+        },
+        {
+          path: generatedClientPath,
+          generate: generateClientRegistry
+        },
+        {
+          path: generatedServerPath,
+          generate: generateServerRegistry
+        }
+      ]
+    });
+
+    const generatedResolver = readFileSync(generatedResolverPath, 'utf8');
+    const generatedClientRegistry = readFileSync(generatedClientPath, 'utf8');
+    const generatedServerRegistry = readFileSync(generatedServerPath, 'utf8');
+
+    expect(JSON.parse(readFileSync(join(installedSnakeDir, 'package.json'), 'utf8')).citadel.appId).toBe('snake');
+    expect(generatedResolver).toContain('"@citadel/app-snake"');
+    expect(generatedResolver).toContain('appId: "snake"');
+    expect(generatedResolver).toContain('persistence: "none"');
+    expect(generatedResolver).not.toContain('@citadel/app-chat');
+    expect(generatedResolver).not.toContain('@citadel/app-chess');
+    expect(generatedClientRegistry).toContain(
+      "import { snakeClientRegistration as bundledClientRegistration0 } from '@citadel/app-snake/client';"
+    );
+    expect(generatedClientRegistry).not.toContain('@citadel/app-chat');
+    expect(generatedClientRegistry).not.toContain('@citadel/app-chess');
+    expect(generatedServerRegistry).toContain(
+      "import { snakeServerRegistration as bundledServerRegistration0 } from '@citadel/app-snake/server';"
+    );
+    expect(generatedServerRegistry).not.toContain('@citadel/app-chat');
+    expect(generatedServerRegistry).not.toContain('@citadel/app-chess');
+  });
+
+  it('resolves snake from the packed package manifest shape', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+    const snakePackage = JSON.parse(
+      readFileSync(join(process.cwd(), 'packages/apps/snake/package.json'), 'utf8')
+    ) as Record<string, unknown>;
+
+    writePackage(tempDir, '@citadel/app-snake', snakePackage);
+
+    const [appPackage] = resolveAppPackages({
+      packages: ['@citadel/app-snake']
+    }, { rootDir: tempDir });
+
+    expect(appPackage.appId).toBe('snake');
+    expect(appPackage.manifest).toEqual({
+      appId: 'snake',
+      label: 'Snake',
+      defaultSpaceId: 'general',
+      persistence: 'none',
+      version: '0.1.0'
+    });
+    expect(generateClientRegistry([appPackage])).toContain(
+      "import { snakeClientRegistration as bundledClientRegistration0 } from '@citadel/app-snake/client';"
+    );
+    expect(generateServerRegistry([appPackage])).toContain(
+      "import { snakeServerRegistration as bundledServerRegistration0 } from '@citadel/app-snake/server';"
+    );
   });
 });
