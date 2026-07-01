@@ -80,6 +80,13 @@ type PackageExportTarget = string | {
   import: string;
 };
 
+type PackageJson = {
+  name: string;
+  exports: Record<string, PackageExportTarget>;
+  scripts: Record<string, string>;
+  dependencies?: Record<string, string>;
+};
+
 const packagePaths = [
   'packages/platform',
   'packages/apps/chat',
@@ -87,12 +94,61 @@ const packagePaths = [
   'packages/apps/snake'
 ] as const;
 
+const publicRuntimeExports = {
+  '@citadel/platform/app': [
+    'DEFAULT_SPACE_ID',
+    'DISPLAY_NAME_MAX_LENGTH',
+    'GUEST_ID_MAX_LENGTH',
+    'GUEST_ID_PATTERN',
+    'SPACE_ID_MAX_LENGTH',
+    'SPACE_ID_PATTERN',
+    'isAppId',
+    'normalizeGuestId',
+    'normalizeSpaceId'
+  ],
+  '@citadel/platform/client': [],
+  '@citadel/platform/server-app': [],
+  '@citadel/platform/persistence': ['openCitadelDatabase'],
+  '@citadel/platform/server': ['createPlatformServer'],
+  '@citadel/platform/validation': ['validateDisplayName'],
+  '@citadel/app-chat': ['MESSAGE_HISTORY_LIMIT', 'MESSAGE_MAX_LENGTH', 'chatManifest'],
+  '@citadel/app-chat/client': ['chatClientApp'],
+  '@citadel/app-chat/server': [
+    'chatServerBundle',
+    'createChatRepository',
+    'createSqliteMessageStore',
+    'resolveChatRepository'
+  ],
+  '@citadel/app-chat/validation': ['validateMessageBody'],
+  '@citadel/app-chess': ['chessManifest'],
+  '@citadel/app-chess/client': ['chessClientApp'],
+  '@citadel/app-chess/server': ['chessServerBundle', 'createChessRepository', 'resolveChessRepository'],
+  '@citadel/app-snake': ['snakeManifest'],
+  '@citadel/app-snake/client': ['snakeClientApp'],
+  '@citadel/app-snake/server': ['snakeServerBundle']
+} as const satisfies Record<string, readonly string[]>;
+
+const forbiddenPackageExportPattern =
+  /(?:^\.(?:\/src|\/dist\/src)(?:\/|$)|(?:View|repository|messageStore|serverEntry|manifest|shared)\.(?:js|ts|tsx)$|(?:^|\/)(?:ChatView|ChessView|SnakeView|repository|messageStore|serverEntry|manifest|shared)(?:$|\/))/;
+
 function appImplementationPath(appId: (typeof appIds)[number], fileName: string) {
   return `packages/apps/${appId}/src/${fileName}`;
 }
 
 function exists(path: string) {
   return existsSync(join(process.cwd(), path));
+}
+
+function sortedExportKeys(module: Record<string, unknown>) {
+  return Object.keys(module).sort();
+}
+
+function packageExportEntries(packageJson: Pick<PackageJson, 'exports'>) {
+  return Object.entries(packageJson.exports).map(([subpath, target]) => ({
+    subpath,
+    importTarget: typeof target === 'string' ? target : target.import,
+    typesTarget: typeof target === 'string' ? undefined : target.types
+  }));
 }
 
 describe('app package import boundaries', () => {
@@ -236,13 +292,7 @@ describe('app package import boundaries', () => {
 
   it('declares workspace package exports for platform and bundled apps', () => {
     const rootPackage = jsonSource<{ workspaces: string[]; scripts: Record<string, string> }>('package.json');
-    const platformPackage = jsonSource<{
-      name: string;
-      exports: Record<string, PackageExportTarget>;
-      scripts: Record<string, string>;
-    }>(
-      'packages/platform/package.json'
-    );
+    const platformPackage = jsonSource<PackageJson>('packages/platform/package.json');
 
     expect(rootPackage.scripts.typecheck).toBe(
       'npm run typecheck:client && npm run typecheck:server && npm run typecheck:packages'
@@ -286,12 +336,7 @@ describe('app package import boundaries', () => {
     expect(platformPackage.scripts.typecheck).toBe('tsc -p tsconfig.json --noEmit');
 
     for (const appId of appIds) {
-      const appPackage = jsonSource<{
-        name: string;
-        exports: Record<string, PackageExportTarget>;
-        scripts: Record<string, string>;
-        dependencies?: Record<string, string>;
-      }>(`packages/apps/${appId}/package.json`);
+      const appPackage = jsonSource<PackageJson>(`packages/apps/${appId}/package.json`);
 
       expect(appPackage.name).toBe(`@citadel/app-${appId}`);
       expect(appPackage.exports).toEqual(
@@ -320,20 +365,44 @@ describe('app package import boundaries', () => {
     }
   });
 
-  it('loads public package surfaces from built workspace package artifacts', async () => {
+  it('does not expose package subpaths for source, build, view, or implementation internals', () => {
+    const packageJsonPaths = [
+      'packages/platform/package.json',
+      'packages/apps/chat/package.json',
+      'packages/apps/chess/package.json',
+      'packages/apps/snake/package.json'
+    ] as const;
+
+    for (const packageJsonPath of packageJsonPaths) {
+      const packageJson = jsonSource<PackageJson>(packageJsonPath);
+
+      for (const { subpath, importTarget, typesTarget } of packageExportEntries(packageJson)) {
+        expect(subpath).not.toMatch(forbiddenPackageExportPattern);
+        expect(importTarget).not.toMatch(forbiddenPackageExportPattern);
+        expect(typesTarget ?? '').not.toMatch(forbiddenPackageExportPattern);
+      }
+
+      if (packageJson.name.startsWith('@citadel/app-')) {
+        for (const otherAppId of appIds) {
+          if (packageJson.name !== `@citadel/app-${otherAppId}`) {
+            expect(JSON.stringify(packageJson.exports)).not.toContain(`app-${otherAppId}`);
+            expect(JSON.stringify(packageJson.exports)).not.toContain(`/apps/${otherAppId}`);
+          }
+        }
+      }
+    }
+  });
+
+  it('loads only intentional public runtime values from built workspace package artifacts', async () => {
     for (const packagePath of packagePaths) {
       expect(exists(`${packagePath}/dist`)).toBe(true);
     }
 
-    const platformApp = await import('@citadel/platform/app');
-    const chat = await import('@citadel/app-chat');
-    const chatClient = await import('@citadel/app-chat/client');
-    const chatServer = await import('@citadel/app-chat/server');
+    for (const [specifier, expectedKeys] of Object.entries(publicRuntimeExports)) {
+      const module = await import(specifier);
 
-    expect(platformApp.DEFAULT_SPACE_ID).toBe('general');
-    expect(chat.chatManifest.appId).toBe('chat');
-    expect(chatClient.chatClientApp.appId).toBe('chat');
-    expect(chatServer.chatServerBundle.appId).toBe('chat');
+      expect(sortedExportKeys(module)).toEqual([...expectedKeys].sort());
+    }
   });
 
   it('checks each package through a package-local no-emit tsconfig', () => {
