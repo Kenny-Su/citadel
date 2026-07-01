@@ -69,6 +69,32 @@ function packSnake(options: { cacheDir: string; destinationDir: string }) {
   };
 }
 
+function installPackedSnakeHost(options: { cacheDir: string; rootDir: string }) {
+  const packDir = join(options.rootDir, 'packs');
+  const extractDir = join(options.rootDir, 'extract');
+  const hostDir = join(options.rootDir, 'host');
+  const installedSnakeDir = join(hostDir, 'node_modules/@citadel/app-snake');
+  mkdirSync(packDir, { recursive: true });
+  mkdirSync(extractDir, { recursive: true });
+
+  runNpm(['run', 'build', '-w', '@citadel/app-snake'], { cacheDir: options.cacheDir });
+  const { tarballPath } = packSnake({ cacheDir: options.cacheDir, destinationDir: packDir });
+  execFileSync('tar', ['-xzf', tarballPath, '-C', extractDir]);
+  mkdirSync(dirname(installedSnakeDir), { recursive: true });
+  cpSync(join(extractDir, 'package'), installedSnakeDir, { recursive: true });
+
+  return {
+    hostDir,
+    installedSnakeDir
+  };
+}
+
+function linkHostDependency(hostDir: string, packageName: string) {
+  const dependencyPath = join(hostDir, 'node_modules', ...packageName.split('/'));
+  mkdirSync(dirname(dependencyPath), { recursive: true });
+  symlinkSync(join(process.cwd(), 'node_modules', ...packageName.split('/')), dependencyPath, 'dir');
+}
+
 describe('bundled app generator package resolution', () => {
   let tempDir: string | undefined;
 
@@ -210,24 +236,14 @@ describe('bundled app generator package resolution', () => {
   it('generates bundled app registries from a packed snake dependency install', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
     const cacheDir = join(tempDir, 'npm-cache');
-    const packDir = join(tempDir, 'packs');
-    const extractDir = join(tempDir, 'extract');
-    const hostDir = join(tempDir, 'host');
-    const installedSnakeDir = join(hostDir, 'node_modules/@citadel/app-snake');
+    const { hostDir, installedSnakeDir } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
     const generatedResolverPath = join(hostDir, 'src/bundledApps/generatedResolver.ts');
     const generatedClientPath = join(hostDir, 'src/client/generatedAppRegistry.ts');
     const generatedServerPath = join(hostDir, 'src/bundledApps/generatedServerRegistry.ts');
-    mkdirSync(packDir, { recursive: true });
-    mkdirSync(extractDir, { recursive: true });
     mkdirSync(dirname(generatedResolverPath), { recursive: true });
     mkdirSync(dirname(generatedClientPath), { recursive: true });
     mkdirSync(dirname(generatedServerPath), { recursive: true });
 
-    runNpm(['run', 'build', '-w', '@citadel/app-snake'], { cacheDir });
-    const { tarballPath } = packSnake({ cacheDir, destinationDir: packDir });
-    execFileSync('tar', ['-xzf', tarballPath, '-C', extractDir]);
-    mkdirSync(dirname(installedSnakeDir), { recursive: true });
-    cpSync(join(extractDir, 'package'), installedSnakeDir, { recursive: true });
     writeFileSync(join(hostDir, 'bundled-apps.json'), JSON.stringify({
       packages: ['@citadel/app-snake']
     }, null, 2));
@@ -271,6 +287,54 @@ describe('bundled app generator package resolution', () => {
     );
     expect(generatedServerRegistry).not.toContain('@citadel/app-chat');
     expect(generatedServerRegistry).not.toContain('@citadel/app-chess');
+  });
+
+  it('imports packed snake public package surfaces from a temp host install', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+    const cacheDir = join(tempDir, 'npm-cache');
+    const { hostDir } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
+    const probePath = join(hostDir, 'probe.mjs');
+    linkHostDependency(hostDir, '@citadel/platform');
+    linkHostDependency(hostDir, 'react');
+    writeFileSync(probePath, [
+      "import * as root from '@citadel/app-snake';",
+      "import * as client from '@citadel/app-snake/client';",
+      "import * as server from '@citadel/app-snake/server';",
+      'console.log(JSON.stringify({',
+      '  rootKeys: Object.keys(root).sort(),',
+      '  clientKeys: Object.keys(client).sort(),',
+      '  serverKeys: Object.keys(server).sort(),',
+      '  manifestAppId: root.snakeManifest.appId,',
+      '  descriptorPackageName: root.snakeAppPackage.packageName,',
+      '  clientRegistrationAppId: client.snakeClientRegistration.appId,',
+      '  serverRegistrationAppId: server.snakeServerRegistration.appId',
+      '}));'
+    ].join('\n'));
+
+    const probe = JSON.parse(execFileSync('node', [probePath], {
+      cwd: hostDir,
+      encoding: 'utf8'
+    })) as {
+      rootKeys: string[];
+      clientKeys: string[];
+      serverKeys: string[];
+      manifestAppId: string;
+      descriptorPackageName: string;
+      clientRegistrationAppId: string;
+      serverRegistrationAppId: string;
+    };
+
+    expect(probe.rootKeys).toEqual(['snakeAppPackage', 'snakeManifest']);
+    expect(probe.clientKeys).toEqual(['snakeClientApp', 'snakeClientRegistration']);
+    expect(probe.serverKeys).toEqual([
+      'createSnakeServerAppFromServices',
+      'snakeServerBundle',
+      'snakeServerRegistration'
+    ]);
+    expect(probe.manifestAppId).toBe('snake');
+    expect(probe.descriptorPackageName).toBe('@citadel/app-snake');
+    expect(probe.clientRegistrationAppId).toBe('snake');
+    expect(probe.serverRegistrationAppId).toBe('snake');
   });
 
   it('resolves snake from the packed package manifest shape', () => {
