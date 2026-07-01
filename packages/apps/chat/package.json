@@ -21,6 +21,21 @@
       "import": "./dist/validation.js"
     }
   },
+  "citadel": {
+    "appId": "chat",
+    "label": "Chat",
+    "defaultSpaceId": "general",
+    "persistence": "sqlite",
+    "version": "0.1.0",
+    "client": {
+      "subpath": "./client",
+      "registrationExport": "chatClientRegistration"
+    },
+    "server": {
+      "subpath": "./server",
+      "registrationExport": "chatServerRegistration"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",

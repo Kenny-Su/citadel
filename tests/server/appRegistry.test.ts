@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -46,6 +46,33 @@ import {
   snakeManifest as publicSnakeManifest
 } from '@citadel/app-snake';
 import { snakeServerRegistration as publicSnakeServerRegistration } from '@citadel/app-snake/server';
+
+type CitadelPackageMetadata = {
+  appId: string;
+  label: string;
+  defaultSpaceId: string;
+  persistence: 'none' | 'sqlite';
+  version: string;
+  client: {
+    subpath: './client';
+    registrationExport: string;
+  };
+  server: {
+    subpath: './server';
+    registrationExport: string;
+  };
+};
+
+function readCitadelPackageMetadata(appId: 'chat' | 'chess' | 'snake') {
+  const packageJson = JSON.parse(
+    readFileSync(join(process.cwd(), `packages/apps/${appId}/package.json`), 'utf8')
+  ) as { name: string; citadel: CitadelPackageMetadata };
+
+  return {
+    packageName: packageJson.name,
+    ...packageJson.citadel
+  };
+}
 
 describe('bundled server app registry', () => {
   let tempDir: string;
@@ -146,36 +173,32 @@ describe('bundled server app registry', () => {
   });
 
   it('exposes app manifests and server registrations from environment entrypoints', () => {
+    const packageMetadata = [
+      readCitadelPackageMetadata('chat'),
+      readCitadelPackageMetadata('chess'),
+      readCitadelPackageMetadata('snake')
+    ];
+
     expect([publicChatManifest, publicChessManifest, publicSnakeManifest].map((manifest) => manifest.appId)).toEqual([
       'chat',
       'chess',
       'snake'
     ]);
-    expect([publicChatAppPackage, publicChessAppPackage, publicSnakeAppPackage].map((appPackage) => ({
-      appId: appPackage.appId,
-      packageName: appPackage.packageName,
-      client: appPackage.client.registrationExport,
-      server: appPackage.server.registrationExport
-    }))).toEqual([
-      {
-        appId: 'chat',
-        packageName: '@citadel/app-chat',
-        client: 'chatClientRegistration',
-        server: 'chatServerRegistration'
-      },
-      {
-        appId: 'chess',
-        packageName: '@citadel/app-chess',
-        client: 'chessClientRegistration',
-        server: 'chessServerRegistration'
-      },
-      {
-        appId: 'snake',
-        packageName: '@citadel/app-snake',
-        client: 'snakeClientRegistration',
-        server: 'snakeServerRegistration'
-      }
-    ]);
+    expect([publicChatAppPackage, publicChessAppPackage, publicSnakeAppPackage]).toEqual(
+      packageMetadata.map((metadata) => ({
+        appId: metadata.appId,
+        manifest: {
+          appId: metadata.appId,
+          label: metadata.label,
+          defaultSpaceId: metadata.defaultSpaceId,
+          persistence: metadata.persistence,
+          version: metadata.version
+        },
+        packageName: metadata.packageName,
+        client: metadata.client,
+        server: metadata.server
+      }))
+    );
     const registrations = [
       bundledServerRegistrationByPackageName['@citadel/app-chat'],
       bundledServerRegistrationByPackageName['@citadel/app-chess'],

@@ -5,7 +5,7 @@ import { chessServerRegistration as bundledServerRegistration1 } from '@citadel/
 import { snakeServerRegistration as bundledServerRegistration2 } from '@citadel/app-snake/server';
 
 export const bundledServerRegistrationByPackageName: Record<string, ServerAppRegistration<any>> = {
-  '@citadel/app-chat': bundledServerRegistration0,
-  '@citadel/app-chess': bundledServerRegistration1,
-  '@citadel/app-snake': bundledServerRegistration2
+  "@citadel/app-chat": bundledServerRegistration0,
+  "@citadel/app-chess": bundledServerRegistration1,
+  "@citadel/app-snake": bundledServerRegistration2
 };

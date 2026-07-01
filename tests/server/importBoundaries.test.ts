@@ -98,11 +98,76 @@ type PackageJson = {
   exports: Record<string, PackageExportTarget>;
   scripts: Record<string, string>;
   dependencies?: Record<string, string>;
+  citadel?: CitadelPackageMetadata;
 };
 
 type BundledAppsJson = {
   packages: string[];
 };
+
+type CitadelPackageMetadata = {
+  appId: string;
+  label: string;
+  defaultSpaceId: string;
+  persistence: 'none' | 'sqlite';
+  version: string;
+  client: {
+    subpath: string;
+    registrationExport: string;
+  };
+  server: {
+    subpath: string;
+    registrationExport: string;
+  };
+};
+
+const expectedCitadelMetadataByAppId = {
+  chat: {
+    appId: 'chat',
+    label: 'Chat',
+    defaultSpaceId: 'general',
+    persistence: 'sqlite',
+    version: '0.1.0',
+    client: {
+      subpath: './client',
+      registrationExport: 'chatClientRegistration'
+    },
+    server: {
+      subpath: './server',
+      registrationExport: 'chatServerRegistration'
+    }
+  },
+  chess: {
+    appId: 'chess',
+    label: 'Chess',
+    defaultSpaceId: 'general',
+    persistence: 'sqlite',
+    version: '0.1.0',
+    client: {
+      subpath: './client',
+      registrationExport: 'chessClientRegistration'
+    },
+    server: {
+      subpath: './server',
+      registrationExport: 'chessServerRegistration'
+    }
+  },
+  snake: {
+    appId: 'snake',
+    label: 'Snake',
+    defaultSpaceId: 'general',
+    persistence: 'none',
+    version: '0.1.0',
+    client: {
+      subpath: './client',
+      registrationExport: 'snakeClientRegistration'
+    },
+    server: {
+      subpath: './server',
+      registrationExport: 'snakeServerRegistration'
+    }
+  }
+} as const satisfies Record<(typeof appIds)[number], CitadelPackageMetadata>;
 
 const packagePaths = [
   'packages/platform',
@@ -408,6 +473,7 @@ describe('app package import boundaries', () => {
             './server': { types: './dist/server.d.ts', import: './dist/server.js' }
           }
       );
+      expect(appPackage.citadel).toEqual(expectedCitadelMetadataByAppId[appId]);
       expect(Object.values(appPackage.exports).every((entry) => typeof entry !== 'string')).toBe(true);
       expect(Object.values(appPackage.exports).every((entry) => typeof entry !== 'string' && entry.import.startsWith('./dist/'))).toBe(true);
       expect(appPackage.scripts.build).toBe('tsc -p tsconfig.build.json');
@@ -570,15 +636,27 @@ describe('app package import boundaries', () => {
     expect(config).not.toContain("'@citadel/app-snake'");
 
     for (const appId of appIds) {
+      const metadata = expectedCitadelMetadataByAppId[appId];
+      const clientImportPath = `@citadel/app-${appId}/${metadata.client.subpath.slice(2)}`;
+      const serverImportPath = `@citadel/app-${appId}/${metadata.server.subpath.slice(2)}`;
+
       expect(definitions).not.toContain(`from '@citadel/app-${appId}'`);
       expect(definitions).not.toContain(`@citadel/app-${appId}/client`);
       expect(definitions).not.toContain(`@citadel/app-${appId}/server`);
-      expect(generatedResolver).toContain(`from '@citadel/app-${appId}'`);
+      expect(generatedResolver).toContain(`"@citadel/app-${appId}":`);
+      expect(generatedResolver).toContain(`appId: "${metadata.appId}"`);
+      expect(generatedResolver).toContain(`label: "${metadata.label}"`);
+      expect(generatedResolver).toContain(`persistence: "${metadata.persistence}"`);
+      expect(generatedResolver).toContain(`registrationExport: "${metadata.client.registrationExport}"`);
+      expect(generatedResolver).toContain(`registrationExport: "${metadata.server.registrationExport}"`);
+      expect(generatedResolver).not.toContain(`from '@citadel/app-${appId}'`);
       expect(generatedResolver).not.toContain(`@citadel/app-${appId}/client`);
       expect(generatedResolver).not.toContain(`@citadel/app-${appId}/server`);
-      expect(generatedClientRegistry).toContain(`from '@citadel/app-${appId}/client'`);
+      expect(generatedClientRegistry).toContain(`from '${clientImportPath}'`);
+      expect(generatedClientRegistry).toContain(metadata.client.registrationExport);
       expect(generatedClientRegistry).not.toContain(`@citadel/app-${appId}/server`);
-      expect(generatedServerRegistry).toContain(`from '@citadel/app-${appId}/server'`);
+      expect(generatedServerRegistry).toContain(`from '${serverImportPath}'`);
+      expect(generatedServerRegistry).toContain(metadata.server.registrationExport);
       expect(generatedServerRegistry).not.toContain(`@citadel/app-${appId}/client`);
       expect(resolver).not.toContain(`from '@citadel/app-${appId}'`);
       expect(resolver).not.toContain(`@citadel/app-${appId}/client`);

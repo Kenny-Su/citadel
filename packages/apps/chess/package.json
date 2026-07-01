@@ -17,6 +17,21 @@
       "import": "./dist/server.js"
     }
   },
+  "citadel": {
+    "appId": "chess",
+    "label": "Chess",
+    "defaultSpaceId": "general",
+    "persistence": "sqlite",
+    "version": "0.1.0",
+    "client": {
+      "subpath": "./client",
+      "registrationExport": "chessClientRegistration"
+    },
+    "server": {
+      "subpath": "./server",
+      "registrationExport": "chessServerRegistration"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",

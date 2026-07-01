@@ -10,7 +10,7 @@ Each bundled app exposes three environment-specific surfaces:
 - `packages/apps/<app>/src/client.tsx`: browser client registration, `ClientAppModule`, and view wiring.
 - `packages/apps/<app>/src/serverEntry.ts`: server registration, bundle, repository resolver, and server-only exports.
 
-Bundled app order is declared as package names in `bundled-apps.json`. `src/bundledApps/config.ts` validates that data, a generated resolver map imports the selected app package descriptors, and `src/bundledApps/definitions.ts` derives ordered manifests from that resolved descriptor list. Client and server registries derive their ordered app lists from the descriptor list, while keeping client and server registrations in environment-specific package surfaces.
+Bundled app order is declared as package names in `bundled-apps.json`. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. `src/bundledApps/config.ts` validates the selection data, generated resolver data mirrors the selected package metadata, and `src/bundledApps/definitions.ts` derives ordered manifests from that descriptor list. Client and server registries derive their ordered app lists from the descriptor list, while keeping client and server registrations in environment-specific package surfaces.
 
 Platform contracts are split by environment inside `packages/platform/src`:
 
@@ -46,7 +46,7 @@ All bundled apps are source-owning workspace packages: their implementations liv
 
 Shared server app services stay platform-only in `@citadel/platform/server-app`. App-specific server options, such as repository injection or chat rate limits, belong to each app server entrypoint and its app-owned server registration.
 
-Neutral app package descriptors expose manifest, package name, and intended client/server registration export names. They must not import client or server implementation modules directly.
+Neutral app package descriptors expose manifest, package name, and intended client/server registration export names. They are the runtime/public API mirror of the package manifest metadata, and must not import client or server implementation modules directly.
 
 Package exports map each public surface to built JavaScript and declarations, for example:
 
@@ -71,11 +71,13 @@ Package exports map each public surface to built JavaScript and declarations, fo
 
 - Platform core imports only platform contracts and generic server modules. It must not import concrete app internals.
 - `bundled-apps.json` declares app package names only.
+- App `package.json` files declare Citadel metadata, including manifest data and client/server registration subpaths and export names.
 - The neutral bundled app config validates the JSON selection data.
-- `src/bundledApps/generatedResolver.ts` is generated from `bundled-apps.json` and is the only neutral host module that statically imports configured app package descriptors.
+- `src/bundledApps/generatedResolver.ts` is generated from app package manifest metadata and must not statically import configured app package descriptors.
 - The handwritten bundled app resolver owns validation and imports the generated descriptor map.
-- The client registry imports app client registrations plus neutral shared types.
-- The server registry imports app server registrations and calls their app-owned server service adapters through that registration contract.
+- Generated client and server registries are the only static host bridge to configured app registration imports.
+- The client registry consumes generated client registrations plus neutral shared types.
+- The server registry consumes generated server registrations and calls app-owned server service adapters through that registration contract.
 - Neutral app indexes do not import client modules, server bundles, repositories, repository resolvers, or implementation factories.
 - App code imports platform contracts, shared platform helpers, and persistence APIs through `@citadel/platform/*` aliases rather than relative platform, shared, or persistence paths.
 - Registries import bundled app public surfaces through `@citadel/app-*` package aliases rather than relative app entrypoint paths.
