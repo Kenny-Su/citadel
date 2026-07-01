@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -86,6 +86,10 @@ export function readInstalledPackageManifest(packageName, options = {}) {
   }
 
   return readJson(packageJsonPath);
+}
+
+function resolveInstalledPackageDir(packageName, options = {}) {
+  return dirname(resolveInstalledPackageJsonPath(packageName, options));
 }
 
 export function resolveAppPackages(config, options = {}) {
@@ -179,6 +183,87 @@ function importPath(packageName, subpath) {
   return subpath === '.' ? packageName : `${packageName}/${subpath.slice(2)}`;
 }
 
+function resolvePackageExportTarget(packageName, packageJson, subpath) {
+  const target = packageJson.exports?.[subpath];
+
+  if (!target) {
+    throw new Error(`Bundled app package ${packageName} must export ${subpath}`);
+  }
+
+  if (typeof target === 'string') {
+    return target;
+  }
+
+  if (target && typeof target === 'object' && typeof target.import === 'string') {
+    return target.import;
+  }
+
+  throw new Error(`Bundled app package ${packageName} export ${subpath} must declare an import target`);
+}
+
+function assertDescriptorMatchesMetadata(packageName, descriptor, metadataDescriptor) {
+  if (!descriptor || typeof descriptor !== 'object') {
+    return false;
+  }
+
+  return descriptor.appId === metadataDescriptor.appId
+    && descriptor.packageName === metadataDescriptor.packageName
+    && JSON.stringify(descriptor.manifest) === JSON.stringify(metadataDescriptor.manifest)
+    && JSON.stringify(descriptor.client) === JSON.stringify(metadataDescriptor.client)
+    && JSON.stringify(descriptor.server) === JSON.stringify(metadataDescriptor.server);
+}
+
+async function importPackageSurface(packageName, packageJson, subpath, options = {}) {
+  const packageDir = resolveInstalledPackageDir(packageName, options);
+  const target = resolvePackageExportTarget(packageName, packageJson, subpath);
+
+  return import(pathToFileURL(join(packageDir, target)).href);
+}
+
+export async function validateInstalledAppPackage(appPackage, options = {}) {
+  const packageJson = readInstalledPackageManifest(appPackage.packageName, options);
+  const rootModule = await importPackageSurface(appPackage.packageName, packageJson, '.', options);
+  const clientModule = await importPackageSurface(
+    appPackage.packageName,
+    packageJson,
+    appPackage.client.subpath,
+    options
+  );
+  const serverModule = await importPackageSurface(
+    appPackage.packageName,
+    packageJson,
+    appPackage.server.subpath,
+    options
+  );
+  const rootDescriptors = Object.values(rootModule).filter((value) => (
+    assertDescriptorMatchesMetadata(appPackage.packageName, value, appPackage)
+  ));
+
+  if (rootDescriptors.length === 0) {
+    throw new Error(
+      `Bundled app package ${appPackage.packageName} root surface must export an app package descriptor matching citadel metadata`
+    );
+  }
+
+  if (!(appPackage.client.registrationExport in clientModule)) {
+    throw new Error(
+      `Bundled app package ${importPath(appPackage.packageName, appPackage.client.subpath)} must export ${appPackage.client.registrationExport}`
+    );
+  }
+
+  if (!(appPackage.server.registrationExport in serverModule)) {
+    throw new Error(
+      `Bundled app package ${importPath(appPackage.packageName, appPackage.server.subpath)} must export ${appPackage.server.registrationExport}`
+    );
+  }
+}
+
+export async function validateInstalledAppPackages(appPackages, options = {}) {
+  for (const appPackage of appPackages) {
+    await validateInstalledAppPackage(appPackage, options);
+  }
+}
+
 function literal(value) {
   return JSON.stringify(value);
 }
@@ -263,11 +348,13 @@ export function generateServerRegistry(appPackages) {
   ].join('\n');
 }
 
-export function runGenerator(options = {}) {
+export async function runGenerator(options = {}) {
   const generationRootDir = options.rootDir ?? rootDir;
   const generationOutputs = options.outputs ?? outputs;
   const config = readConfig(options.configPath ?? configPath);
   const appPackages = resolveAppPackages(config, { rootDir: generationRootDir });
+
+  await validateInstalledAppPackages(appPackages, { rootDir: generationRootDir });
 
   if (options.checkOnly ?? checkOnly) {
     for (const output of generationOutputs) {
@@ -292,5 +379,5 @@ export function runGenerator(options = {}) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  runGenerator();
+  await runGenerator();
 }

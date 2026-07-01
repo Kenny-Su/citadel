@@ -32,6 +32,91 @@ function writePackage(rootDir: string, packageName: string, packageJson: Record<
   }, null, 2));
 }
 
+function writeRuntimePackage(
+  rootDir: string,
+  packageName: string,
+  options: {
+    metadata?: typeof validCitadelMetadata;
+    rootDescriptor?: Record<string, unknown>;
+    clientExports?: string;
+    serverExports?: string;
+  } = {}
+) {
+  const metadata = options.metadata ?? validCitadelMetadata;
+  const packageJsonPath = resolveInstalledPackageJsonPath(packageName, { rootDir });
+  const packageDir = dirname(packageJsonPath);
+  mkdirSync(join(packageDir, 'dist'), { recursive: true });
+  writeFileSync(packageJsonPath, JSON.stringify({
+    name: packageName,
+    type: 'module',
+    exports: {
+      '.': {
+        import: './dist/index.js'
+      },
+      [metadata.client.subpath]: {
+        import: './dist/client.js'
+      },
+      [metadata.server.subpath]: {
+        import: './dist/server.js'
+      }
+    },
+    citadel: metadata
+  }, null, 2));
+  writeFileSync(join(packageDir, 'dist/index.js'), [
+    `export const demoAppPackage = ${JSON.stringify(options.rootDescriptor ?? {
+      appId: metadata.appId,
+      manifest: {
+        appId: metadata.appId,
+        label: metadata.label,
+        defaultSpaceId: metadata.defaultSpaceId,
+        persistence: metadata.persistence,
+        version: metadata.version
+      },
+      packageName,
+      client: metadata.client,
+      server: metadata.server
+    })};`
+  ].join('\n'));
+  writeFileSync(join(packageDir, 'dist/client.js'), options.clientExports ?? (
+    `export const ${metadata.client.registrationExport} = { appId: ${JSON.stringify(metadata.appId)} };\n`
+  ));
+  writeFileSync(join(packageDir, 'dist/server.js'), options.serverExports ?? (
+    `export const ${metadata.server.registrationExport} = { appId: ${JSON.stringify(metadata.appId)} };\n`
+  ));
+}
+
+function generatorOutputs(rootDir: string) {
+  return [
+    {
+      path: join(rootDir, 'src/bundledApps/generatedResolver.ts'),
+      generate: generateDescriptorResolver
+    },
+    {
+      path: join(rootDir, 'src/client/generatedAppRegistry.ts'),
+      generate: generateClientRegistry
+    },
+    {
+      path: join(rootDir, 'src/bundledApps/generatedServerRegistry.ts'),
+      generate: generateServerRegistry
+    }
+  ];
+}
+
+async function runGeneratorForPackages(rootDir: string, packages: string[]) {
+  const configPath = join(rootDir, 'bundled-apps.json');
+  writeFileSync(configPath, JSON.stringify({ packages }, null, 2));
+
+  for (const output of generatorOutputs(rootDir)) {
+    mkdirSync(dirname(output.path), { recursive: true });
+  }
+
+  await runGenerator({
+    rootDir,
+    configPath,
+    outputs: generatorOutputs(rootDir)
+  });
+}
+
 type PackFile = {
   path: string;
 };
@@ -233,39 +318,19 @@ describe('bundled app generator package resolution', () => {
     expect(packedFiles).not.toContain('tsconfig.build.json');
   });
 
-  it('generates bundled app registries from a packed snake dependency install', () => {
+  it('generates bundled app registries from a packed snake dependency install', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
     const cacheDir = join(tempDir, 'npm-cache');
     const { hostDir, installedSnakeDir } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
-    const generatedResolverPath = join(hostDir, 'src/bundledApps/generatedResolver.ts');
-    const generatedClientPath = join(hostDir, 'src/client/generatedAppRegistry.ts');
-    const generatedServerPath = join(hostDir, 'src/bundledApps/generatedServerRegistry.ts');
-    mkdirSync(dirname(generatedResolverPath), { recursive: true });
-    mkdirSync(dirname(generatedClientPath), { recursive: true });
-    mkdirSync(dirname(generatedServerPath), { recursive: true });
+    const [
+      { path: generatedResolverPath },
+      { path: generatedClientPath },
+      { path: generatedServerPath }
+    ] = generatorOutputs(hostDir);
+    linkHostDependency(hostDir, '@citadel/platform');
+    linkHostDependency(hostDir, 'react');
 
-    writeFileSync(join(hostDir, 'bundled-apps.json'), JSON.stringify({
-      packages: ['@citadel/app-snake']
-    }, null, 2));
-
-    runGenerator({
-      rootDir: hostDir,
-      configPath: join(hostDir, 'bundled-apps.json'),
-      outputs: [
-        {
-          path: generatedResolverPath,
-          generate: generateDescriptorResolver
-        },
-        {
-          path: generatedClientPath,
-          generate: generateClientRegistry
-        },
-        {
-          path: generatedServerPath,
-          generate: generateServerRegistry
-        }
-      ]
-    });
+    await runGeneratorForPackages(hostDir, ['@citadel/app-snake']);
 
     const generatedResolver = readFileSync(generatedResolverPath, 'utf8');
     const generatedClientRegistry = readFileSync(generatedClientPath, 'utf8');
@@ -287,6 +352,40 @@ describe('bundled app generator package resolution', () => {
     );
     expect(generatedServerRegistry).not.toContain('@citadel/app-chat');
     expect(generatedServerRegistry).not.toContain('@citadel/app-chess');
+  });
+
+  it('rejects installed packages whose client registration export is missing', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+    writeRuntimePackage(tempDir, '@example/app-demo', {
+      clientExports: 'export const wrongClientRegistration = { appId: "demo" };\n'
+    });
+
+    await expect(runGeneratorForPackages(tempDir, ['@example/app-demo'])).rejects.toThrow(
+      'Bundled app package @example/app-demo/browser must export demoBrowserRegistration'
+    );
+  });
+
+  it('rejects installed packages whose root descriptor does not match metadata', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+    writeRuntimePackage(tempDir, '@example/app-demo', {
+      rootDescriptor: {
+        appId: 'demo',
+        manifest: {
+          appId: 'demo',
+          label: 'Wrong Demo',
+          defaultSpaceId: 'general',
+          persistence: 'sqlite',
+          version: '0.1.0'
+        },
+        packageName: '@example/app-demo',
+        client: validCitadelMetadata.client,
+        server: validCitadelMetadata.server
+      }
+    });
+
+    await expect(runGeneratorForPackages(tempDir, ['@example/app-demo'])).rejects.toThrow(
+      'Bundled app package @example/app-demo root surface must export an app package descriptor matching citadel metadata'
+    );
   });
 
   it('imports packed snake public package surfaces from a temp host install', () => {
