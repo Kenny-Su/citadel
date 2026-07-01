@@ -2,21 +2,19 @@ import type { AppId, AppManifest } from '@citadel/platform/app';
 import { isAppId } from '@citadel/platform/app';
 import type { ServerAppModule, ServerAppRegistration } from '@citadel/platform/server-app';
 import {
+  bundledAppDefinitions,
   bundledAppIds,
-  bundledAppManifests,
-  orderBundledAppEntries
+  bundledAppManifests
 } from './catalog.js';
 import {
-  chatServerRegistration,
   type ChatRateLimitOptions,
   type ChatRepository,
   type MessageStore
 } from '@citadel/app-chat/server';
 import {
-  chessServerRegistration,
   type ChessRepository
 } from '@citadel/app-chess/server';
-import { snakeServerRegistration } from '@citadel/app-snake/server';
+import { bundledServerRegistrationByPackageName } from './generatedServerRegistry.js';
 import type { ServerAppServices } from './serverServices.js';
 
 export type { ChatRateLimitOptions } from '@citadel/app-chat/server';
@@ -34,11 +32,9 @@ export { bundledAppManifests } from './catalog.js';
 
 type BundledServerAppRegistration = ServerAppRegistration<BundledServerAppServices>;
 
-const bundledServerAppDefinitions = orderBundledAppEntries({
-  chat: chatServerRegistration,
-  chess: chessServerRegistration,
-  snake: snakeServerRegistration
-}) satisfies BundledServerAppRegistration[];
+const bundledServerAppDefinitions = bundledAppDefinitions.map((definition) => (
+  bundledServerRegistrationByPackageName[definition.packageName]
+)) satisfies BundledServerAppRegistration[];
 
 export const bundledServerAppBundles = bundledServerAppDefinitions.map((definition) => definition.bundle);
 

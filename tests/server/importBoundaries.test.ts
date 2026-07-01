@@ -66,9 +66,11 @@ const bundledAppAssemblyFiles = [
   'src/bundledApps/config.ts',
   'src/bundledApps/definitions.ts',
   'src/bundledApps/generatedResolver.ts',
+  'src/bundledApps/generatedServerRegistry.ts',
   'src/bundledApps/resolver.ts',
   'src/bundledApps/catalog.ts',
   'src/bundledApps/serverRegistry.ts',
+  'src/client/generatedAppRegistry.ts',
   'src/client/appRegistry.tsx'
 ] as const;
 
@@ -217,14 +219,17 @@ describe('app package import boundaries', () => {
 
   it('keeps client registry wired to real app packages and platform client contracts', () => {
     const registry = source('src/client/appRegistry.tsx');
+    const generatedRegistry = source('src/client/generatedAppRegistry.ts');
 
     expect(registry).toContain("from '../bundledApps/catalog'");
+    expect(registry).toContain("from './generatedAppRegistry'");
     expect(registry).toContain("from '@citadel/platform/app'");
     expect(registry).toContain("from '@citadel/platform/client'");
     for (const appId of appIds) {
-      expect(registry).toContain(`from '@citadel/app-${appId}'`);
-      expect(registry).toContain(`from '@citadel/app-${appId}/client'`);
-      expect(registry).toContain(`${appId}ClientRegistration`);
+      expect(generatedRegistry).toContain(`from '@citadel/app-${appId}/client'`);
+      expect(generatedRegistry).toContain(`${appId}ClientRegistration`);
+      expect(registry).not.toContain(`@citadel/app-${appId}/client`);
+      expect(registry).not.toContain(`${appId}ClientRegistration`);
       expect(registry).not.toContain(`@citadel/app-${appId}/server`);
       expect(registry).not.toContain(`@citadel/apps/${appId}`);
     }
@@ -236,12 +241,15 @@ describe('app package import boundaries', () => {
 
   it('keeps bundled server registry wired to real app server packages', () => {
     const registry = source('src/bundledApps/serverRegistry.ts');
+    const generatedRegistry = source('src/bundledApps/generatedServerRegistry.ts');
 
     expect(registry).toContain("from './catalog.js'");
     expect(registry).toContain("from '@citadel/platform/server-app'");
+    expect(registry).toContain("from './generatedServerRegistry.js'");
     for (const appId of appIds) {
-      expect(registry).toContain(`from '@citadel/app-${appId}/server'`);
-      expect(registry).toContain(`${appId}ServerRegistration`);
+      expect(generatedRegistry).toContain(`from '@citadel/app-${appId}/server'`);
+      expect(generatedRegistry).toContain(`${appId}ServerRegistration`);
+      expect(registry).not.toContain(`${appId}ServerRegistration`);
       expect(registry).not.toContain(`@citadel/app-${appId}/client`);
       expect(registry).not.toContain(`@citadel/apps/${appId}`);
     }
@@ -543,7 +551,9 @@ describe('app package import boundaries', () => {
     const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
     const config = source('src/bundledApps/config.ts');
     const definitions = source('src/bundledApps/definitions.ts');
+    const generatedClientRegistry = source('src/client/generatedAppRegistry.ts');
     const generatedResolver = source('src/bundledApps/generatedResolver.ts');
+    const generatedServerRegistry = source('src/bundledApps/generatedServerRegistry.ts');
     const resolver = source('src/bundledApps/resolver.ts');
     const catalog = source('src/bundledApps/catalog.ts');
     const serverRegistry = source('src/bundledApps/serverRegistry.ts');
@@ -566,15 +576,20 @@ describe('app package import boundaries', () => {
       expect(generatedResolver).toContain(`from '@citadel/app-${appId}'`);
       expect(generatedResolver).not.toContain(`@citadel/app-${appId}/client`);
       expect(generatedResolver).not.toContain(`@citadel/app-${appId}/server`);
+      expect(generatedClientRegistry).toContain(`from '@citadel/app-${appId}/client'`);
+      expect(generatedClientRegistry).not.toContain(`@citadel/app-${appId}/server`);
+      expect(generatedServerRegistry).toContain(`from '@citadel/app-${appId}/server'`);
+      expect(generatedServerRegistry).not.toContain(`@citadel/app-${appId}/client`);
       expect(resolver).not.toContain(`from '@citadel/app-${appId}'`);
       expect(resolver).not.toContain(`@citadel/app-${appId}/client`);
       expect(resolver).not.toContain(`@citadel/app-${appId}/server`);
       expect(catalog).not.toContain(`from '@citadel/app-${appId}'`);
       expect(catalog).not.toContain(`@citadel/apps/${appId}`);
-      expect(serverRegistry).toContain(`from '@citadel/app-${appId}/server'`);
+      expect(serverRegistry).not.toContain(`${appId}ServerRegistration`);
       expect(serverRegistry).not.toContain(`@citadel/app-${appId}/client`);
       expect(serverRegistry).not.toContain(`@citadel/apps/${appId}`);
-      expect(clientRegistry).toContain(`from '@citadel/app-${appId}/client'`);
+      expect(clientRegistry).not.toContain(`from '@citadel/app-${appId}/client'`);
+      expect(clientRegistry).not.toContain(`${appId}ClientRegistration`);
       expect(clientRegistry).not.toContain(`@citadel/app-${appId}/server`);
     }
     expect(catalog).toContain("from './definitions.js'");
@@ -582,8 +597,10 @@ describe('app package import boundaries', () => {
     expect(definitions).toContain("from './resolver.js'");
     expect(resolver).toContain("from './generatedResolver.js'");
     expect(generatedResolver).toContain('Generated by scripts/generate-bundled-apps.mjs');
-    expect(serverRegistry).toContain('orderBundledAppEntries');
-    expect(clientRegistry).toContain('orderBundledAppEntries');
+    expect(generatedClientRegistry).toContain('Generated by scripts/generate-bundled-apps.mjs');
+    expect(generatedServerRegistry).toContain('Generated by scripts/generate-bundled-apps.mjs');
+    expect(serverRegistry).toContain('bundledAppDefinitions');
+    expect(clientRegistry).toContain('bundledAppDefinitions');
     for (const assemblyFile of bundledAppAssemblyFiles) {
       expect(source(assemblyFile)).not.toMatch(/(?:\.\.\/apps|src\/apps|packages\/apps)\/(?:chat|chess|snake)\//);
     }

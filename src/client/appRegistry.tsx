@@ -3,20 +3,16 @@ import type { ClientAppModule, ClientAppRegistration } from '@citadel/platform/c
 import type { ChatState } from '@citadel/app-chat';
 import type { ChessState } from '@citadel/app-chess';
 import type { SnakeState } from '@citadel/app-snake';
-import { orderBundledAppEntries } from '../bundledApps/catalog';
-import { chatClientRegistration } from '@citadel/app-chat/client';
-import { chessClientRegistration } from '@citadel/app-chess/client';
-import { snakeClientRegistration } from '@citadel/app-snake/client';
+import { bundledAppDefinitions } from '../bundledApps/catalog';
+import { bundledClientRegistrationByPackageName } from './generatedAppRegistry';
 
 export type { AppViewProps, ClientAppModule } from '@citadel/platform/client';
 
 type BundledClientAppRegistration = ClientAppRegistration<any>;
 
-const bundledClientAppDefinitions = orderBundledAppEntries({
-  chat: chatClientRegistration,
-  chess: chessClientRegistration,
-  snake: snakeClientRegistration
-}) satisfies BundledClientAppRegistration[];
+const bundledClientAppDefinitions = bundledAppDefinitions.map((definition) => (
+  bundledClientRegistrationByPackageName[definition.packageName]
+)) satisfies BundledClientAppRegistration[];
 
 export const allClientApps = bundledClientAppDefinitions.map(
   (registration) => registration.clientApp

@@ -18,6 +18,7 @@ import {
   parseBundledAppsConfig,
   resolveBundledAppDefinitions,
 } from '../../src/bundledApps/catalog.js';
+import { bundledServerRegistrationByPackageName } from '../../src/bundledApps/generatedServerRegistry.js';
 import { openCitadelDatabase, type CitadelDatabase } from '@citadel/platform/persistence';
 import type { ServerAppContext } from '@citadel/platform/server-app';
 import {
@@ -176,9 +177,9 @@ describe('bundled server app registry', () => {
       }
     ]);
     const registrations = [
-      publicChatServerRegistration,
-      publicChessServerRegistration,
-      publicSnakeServerRegistration
+      bundledServerRegistrationByPackageName['@citadel/app-chat'],
+      bundledServerRegistrationByPackageName['@citadel/app-chess'],
+      bundledServerRegistrationByPackageName['@citadel/app-snake']
     ];
 
     expect(registrations.map((registration) => registration.appId)).toEqual([
@@ -190,6 +191,11 @@ describe('bundled server app registry', () => {
       'chat',
       'chess',
       'snake'
+    ]);
+    expect(registrations).toEqual([
+      publicChatServerRegistration,
+      publicChessServerRegistration,
+      publicSnakeServerRegistration
     ]);
   });
 

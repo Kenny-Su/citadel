@@ -5,9 +5,7 @@ import {
   createClientAppsFromManifests,
   filterClientApps
 } from '../../src/client/appRegistry';
-import { chatClientRegistration } from '@citadel/app-chat/client';
-import { chessClientRegistration } from '@citadel/app-chess/client';
-import { snakeClientRegistration } from '@citadel/app-snake/client';
+import { bundledClientRegistrationByPackageName } from '../../src/client/generatedAppRegistry';
 
 describe('client app registry', () => {
   it('exposes bundled client app modules in app order', () => {
@@ -16,9 +14,9 @@ describe('client app registry', () => {
 
   it('exposes public client registrations in app order', () => {
     const registrations = [
-      chatClientRegistration,
-      chessClientRegistration,
-      snakeClientRegistration
+      bundledClientRegistrationByPackageName['@citadel/app-chat'],
+      bundledClientRegistrationByPackageName['@citadel/app-chess'],
+      bundledClientRegistrationByPackageName['@citadel/app-snake']
     ];
 
     expect(registrations.map((registration) => registration.appId)).toEqual([
@@ -59,8 +57,8 @@ describe('client app registry', () => {
       { appId: 'snake', label: 'Snake from server', defaultSpaceId: 'arena' },
       { appId: 'chat', label: 'Chat from server', defaultSpaceId: 'lobby' }
     ]);
-    expect(apps?.[0]?.View).toBe(snakeClientRegistration.clientApp.View);
-    expect(apps?.[1]?.View).toBe(chatClientRegistration.clientApp.View);
+    expect(apps?.[0]?.View).toBe(bundledClientRegistrationByPackageName['@citadel/app-snake'].clientApp.View);
+    expect(apps?.[1]?.View).toBe(bundledClientRegistrationByPackageName['@citadel/app-chat'].clientApp.View);
   });
 
   it('returns null when manifest input cannot produce local client apps', () => {
