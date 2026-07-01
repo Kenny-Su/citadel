@@ -5,7 +5,7 @@ import {
   createClientAppsFromManifests,
   filterClientApps
 } from '../../src/client/appRegistry';
-import { bundledClientRegistrationByPackageName } from '../../src/client/generatedAppRegistry';
+import { bundledClientRegistrationByPackageName } from '../../src/bundledApps/generatedAppCatalog';
 
 describe('client app registry', () => {
   it('exposes bundled client app modules in app order', () => {

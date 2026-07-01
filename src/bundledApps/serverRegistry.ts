@@ -6,7 +6,7 @@ import {
   bundledAppIds,
   bundledAppManifests
 } from './catalog.js';
-import { bundledServerRegistrationByPackageName } from './generatedServerRegistry.js';
+import { bundledServerRegistrationByPackageName } from './generatedAppCatalog.js';
 import type { ServerAppServices } from './serverServices.js';
 
 export type { ServerAppServices } from './serverServices.js';

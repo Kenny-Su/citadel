@@ -18,7 +18,7 @@ import {
   parseBundledAppsConfig,
   resolveBundledAppDefinitions,
 } from '../../src/bundledApps/catalog.js';
-import { bundledServerRegistrationByPackageName } from '../../src/bundledApps/generatedServerRegistry.js';
+import { bundledInstalledApps, bundledServerRegistrationByPackageName } from '../../src/bundledApps/generatedAppCatalog.js';
 import { openCitadelDatabase, type CitadelDatabase } from '@citadel/platform/persistence';
 import type { ServerAppContext } from '@citadel/platform/server-app';
 import {
@@ -211,6 +211,21 @@ describe('bundled server app registry', () => {
       'snake'
     ]);
     expect(registrations.map((registration) => registration.bundle.appId)).toEqual([
+      'chat',
+      'chess',
+      'snake'
+    ]);
+    expect(bundledInstalledApps.map((app) => app.descriptor.appId)).toEqual([
+      'chat',
+      'chess',
+      'snake'
+    ]);
+    expect(bundledInstalledApps.map((app) => app.clientRegistration.appId)).toEqual([
+      'chat',
+      'chess',
+      'snake'
+    ]);
+    expect(bundledInstalledApps.map((app) => app.serverRegistration.appId)).toEqual([
       'chat',
       'chess',
       'snake'

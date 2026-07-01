@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error The generator is a Node ESM script exercised directly by Vitest.
-import { generateClientRegistry, generateDescriptorResolver, generateServerRegistry, resolveAppPackages, resolveInstalledPackageJsonPath, runGenerator, validatePackageName } from '../../scripts/generate-bundled-apps.mjs';
+import { generateInstalledAppCatalog, resolveAppPackages, resolveInstalledPackageJsonPath, runGenerator, validatePackageName } from '../../scripts/generate-bundled-apps.mjs';
 
 const validCitadelMetadata = {
   appId: 'demo',
@@ -88,16 +88,8 @@ function writeRuntimePackage(
 function generatorOutputs(rootDir: string) {
   return [
     {
-      path: join(rootDir, 'src/bundledApps/generatedResolver.ts'),
-      generate: generateDescriptorResolver
-    },
-    {
-      path: join(rootDir, 'src/client/generatedAppRegistry.ts'),
-      generate: generateClientRegistry
-    },
-    {
-      path: join(rootDir, 'src/bundledApps/generatedServerRegistry.ts'),
-      generate: generateServerRegistry
+      path: join(rootDir, 'src/bundledApps/generatedAppCatalog.ts'),
+      generate: generateInstalledAppCatalog
     }
   ];
 }
@@ -228,10 +220,10 @@ describe('bundled app generator package resolution', () => {
       client: validCitadelMetadata.client,
       server: validCitadelMetadata.server
     });
-    expect(generateClientRegistry([appPackage])).toContain(
+    expect(generateInstalledAppCatalog([appPackage])).toContain(
       "import { demoBrowserRegistration as bundledClientRegistration0 } from '@example/app-demo/browser';"
     );
-    expect(generateServerRegistry([appPackage])).toContain(
+    expect(generateInstalledAppCatalog([appPackage])).toContain(
       "import { demoNodeRegistration as bundledServerRegistration0 } from '@example/app-demo/node';"
     );
   });
@@ -322,36 +314,30 @@ describe('bundled app generator package resolution', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
     const cacheDir = join(tempDir, 'npm-cache');
     const { hostDir, installedSnakeDir } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
-    const [
-      { path: generatedResolverPath },
-      { path: generatedClientPath },
-      { path: generatedServerPath }
-    ] = generatorOutputs(hostDir);
+    const [{ path: generatedCatalogPath }] = generatorOutputs(hostDir);
     linkHostDependency(hostDir, '@citadel/platform');
     linkHostDependency(hostDir, 'react');
 
     await runGeneratorForPackages(hostDir, ['@citadel/app-snake']);
 
-    const generatedResolver = readFileSync(generatedResolverPath, 'utf8');
-    const generatedClientRegistry = readFileSync(generatedClientPath, 'utf8');
-    const generatedServerRegistry = readFileSync(generatedServerPath, 'utf8');
+    const generatedCatalog = readFileSync(generatedCatalogPath, 'utf8');
 
     expect(JSON.parse(readFileSync(join(installedSnakeDir, 'package.json'), 'utf8')).citadel.appId).toBe('snake');
-    expect(generatedResolver).toContain('"@citadel/app-snake"');
-    expect(generatedResolver).toContain('appId: "snake"');
-    expect(generatedResolver).toContain('persistence: "none"');
-    expect(generatedResolver).not.toContain('@citadel/app-chat');
-    expect(generatedResolver).not.toContain('@citadel/app-chess');
-    expect(generatedClientRegistry).toContain(
+    expect(generatedCatalog).toContain('"@citadel/app-snake"');
+    expect(generatedCatalog).toContain('appId: "snake"');
+    expect(generatedCatalog).toContain('persistence: "none"');
+    expect(generatedCatalog).toContain('bundledInstalledApps');
+    expect(generatedCatalog).toContain('bundledAppDescriptorByPackageName');
+    expect(generatedCatalog).toContain('bundledClientRegistrationByPackageName');
+    expect(generatedCatalog).toContain('bundledServerRegistrationByPackageName');
+    expect(generatedCatalog).not.toContain('@citadel/app-chat');
+    expect(generatedCatalog).not.toContain('@citadel/app-chess');
+    expect(generatedCatalog).toContain(
       "import { snakeClientRegistration as bundledClientRegistration0 } from '@citadel/app-snake/client';"
     );
-    expect(generatedClientRegistry).not.toContain('@citadel/app-chat');
-    expect(generatedClientRegistry).not.toContain('@citadel/app-chess');
-    expect(generatedServerRegistry).toContain(
+    expect(generatedCatalog).toContain(
       "import { snakeServerRegistration as bundledServerRegistration0 } from '@citadel/app-snake/server';"
     );
-    expect(generatedServerRegistry).not.toContain('@citadel/app-chat');
-    expect(generatedServerRegistry).not.toContain('@citadel/app-chess');
   });
 
   it('rejects installed packages whose client registration export is missing', async () => {
@@ -456,10 +442,10 @@ describe('bundled app generator package resolution', () => {
       persistence: 'none',
       version: '0.1.0'
     });
-    expect(generateClientRegistry([appPackage])).toContain(
+    expect(generateInstalledAppCatalog([appPackage])).toContain(
       "import { snakeClientRegistration as bundledClientRegistration0 } from '@citadel/app-snake/client';"
     );
-    expect(generateServerRegistry([appPackage])).toContain(
+    expect(generateInstalledAppCatalog([appPackage])).toContain(
       "import { snakeServerRegistration as bundledServerRegistration0 } from '@citadel/app-snake/server';"
     );
   });

@@ -1,6 +1,6 @@
 import type { AppId, AppPackageDescriptor } from '@citadel/platform/app';
 import type { BundledAppPackageName } from './config.js';
-import { bundledAppDescriptorByPackageName } from './generatedResolver.js';
+import { bundledAppDescriptorByPackageName } from './generatedAppCatalog.js';
 
 export function resolveBundledAppDefinitions(
   packageNames: readonly BundledAppPackageName[]

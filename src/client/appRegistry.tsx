@@ -1,7 +1,7 @@
 import type { AppEventEnvelope, AppId, AppManifest } from '@citadel/platform/app';
 import type { ClientAppModule, ClientAppRegistration } from '@citadel/platform/client';
 import { bundledAppDefinitions } from '../bundledApps/catalog';
-import { bundledClientRegistrationByPackageName } from './generatedAppRegistry';
+import { bundledClientRegistrationByPackageName } from '../bundledApps/generatedAppCatalog';
 
 export type { AppViewProps, ClientAppModule } from '@citadel/platform/client';
 

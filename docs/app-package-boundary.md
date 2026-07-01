@@ -10,7 +10,7 @@ Each bundled app exposes three environment-specific surfaces:
 - `packages/apps/<app>/src/client.tsx`: browser client registration, `ClientAppModule`, and view wiring.
 - `packages/apps/<app>/src/serverEntry.ts`: server registration, bundle, repository resolver, and server-only exports.
 
-Bundled app order is declared as installed package names in `bundled-apps.json`. Local app packages that need monorepo build/watch support are declared separately in `workspace-apps.json`; this is a development convenience, not runtime selection. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. `src/bundledApps/config.ts` validates the selection data, generated resolver data mirrors the selected package metadata, and `src/bundledApps/definitions.ts` derives ordered manifests from that descriptor list. Client and server registries derive their ordered app lists from the descriptor list, while keeping client and server registrations in environment-specific package surfaces.
+Bundled app order is declared as installed package names in `bundled-apps.json`. Local app packages that need monorepo build/watch support are declared separately in `workspace-apps.json`; this is a development convenience, not runtime selection. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. `src/bundledApps/config.ts` validates the selection data, and `src/bundledApps/generatedAppCatalog.ts` is the generated installed-app catalog that mirrors selected package metadata and imports selected client/server registrations. Handwritten client and server registries derive their ordered app lists from that catalog while keeping runtime behavior environment-specific.
 
 Platform contracts are split by environment inside `packages/platform/src`:
 
@@ -76,9 +76,8 @@ Package exports map each public surface to built JavaScript and declarations, fo
 - App `package.json` files declare Citadel metadata, including manifest data and client/server registration subpaths and export names.
 - App package artifacts expose runtime code through package `exports` that point at built `dist` JavaScript and declaration files.
 - The neutral bundled app config validates the JSON selection data.
-- `src/bundledApps/generatedResolver.ts` is generated from app package manifest metadata and must not statically import configured app package descriptors.
-- The handwritten bundled app resolver owns validation and imports the generated descriptor map.
-- Generated client and server registries are the only static host bridge to configured app registration imports.
+- `src/bundledApps/generatedAppCatalog.ts` is generated from app package manifest metadata and is the only static host bridge to configured app client/server registration imports.
+- The handwritten bundled app resolver owns validation and imports the generated descriptor map from the generated catalog.
 - The client registry consumes generated client registrations plus neutral shared types.
 - The server registry consumes generated server registrations and calls app-owned server service adapters through that registration contract.
 - Neutral app indexes do not import client modules, server bundles, repositories, repository resolvers, or implementation factories.
