@@ -16,3 +16,8 @@ export type ClientAppModule<TState = unknown> = {
   defaultSpaceId: string;
   View: ComponentType<AppViewProps<TState>>;
 };
+
+export type ClientAppRegistration<TState = unknown> = {
+  appId: AppId;
+  clientApp: ClientAppModule<TState>;
+};

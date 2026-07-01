@@ -119,7 +119,7 @@ const publicRuntimeExports = {
   '@citadel/platform/server': ['createPlatformServer'],
   '@citadel/platform/validation': ['validateDisplayName'],
   '@citadel/app-chat': ['MESSAGE_HISTORY_LIMIT', 'MESSAGE_MAX_LENGTH', 'chatManifest'],
-  '@citadel/app-chat/client': ['chatClientApp'],
+  '@citadel/app-chat/client': ['chatClientApp', 'chatClientRegistration'],
   '@citadel/app-chat/server': [
     'chatServerBundle',
     'chatServerRegistration',
@@ -130,7 +130,7 @@ const publicRuntimeExports = {
   ],
   '@citadel/app-chat/validation': ['validateMessageBody'],
   '@citadel/app-chess': ['chessManifest'],
-  '@citadel/app-chess/client': ['chessClientApp'],
+  '@citadel/app-chess/client': ['chessClientApp', 'chessClientRegistration'],
   '@citadel/app-chess/server': [
     'chessServerBundle',
     'chessServerRegistration',
@@ -139,7 +139,7 @@ const publicRuntimeExports = {
     'resolveChessRepository'
   ],
   '@citadel/app-snake': ['snakeManifest'],
-  '@citadel/app-snake/client': ['snakeClientApp'],
+  '@citadel/app-snake/client': ['snakeClientApp', 'snakeClientRegistration'],
   '@citadel/app-snake/server': [
     'createSnakeServerAppFromServices',
     'snakeServerBundle',
@@ -213,9 +213,14 @@ describe('app package import boundaries', () => {
     for (const appId of appIds) {
       expect(registry).toContain(`from '@citadel/app-${appId}'`);
       expect(registry).toContain(`from '@citadel/app-${appId}/client'`);
+      expect(registry).toContain(`${appId}ClientRegistration`);
       expect(registry).not.toContain(`@citadel/app-${appId}/server`);
       expect(registry).not.toContain(`@citadel/apps/${appId}`);
     }
+    expect(registry).not.toMatch(/chatClientApp|chessClientApp|snakeClientApp/);
+    expect(registry).not.toMatch(
+      /\.\/(?:chat|chess|snake)\/(?:client|server|manifest|shared|repository|messageStore|validation|ChatView|ChessView|SnakeView)\.js/
+    );
   });
 
   it('keeps bundled server registry wired to real app server packages', () => {

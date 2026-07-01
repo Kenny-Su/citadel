@@ -1,1 +1,5 @@
-export type { AppViewProps, ClientAppModule } from './clientAppContract.js';
+export type {
+  AppViewProps,
+  ClientAppModule,
+  ClientAppRegistration
+} from './clientAppContract.js';

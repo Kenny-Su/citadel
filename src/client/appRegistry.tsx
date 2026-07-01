@@ -1,22 +1,26 @@
 import type { AppEventEnvelope, AppId, AppManifest } from '@citadel/platform/app';
-import type { ClientAppModule } from '@citadel/platform/client';
+import type { ClientAppModule, ClientAppRegistration } from '@citadel/platform/client';
 import type { ChatState } from '@citadel/app-chat';
 import type { ChessState } from '@citadel/app-chess';
 import type { SnakeState } from '@citadel/app-snake';
 import { orderBundledAppEntries } from '../bundledApps/catalog';
-import { chatClientApp } from '@citadel/app-chat/client';
-import { chessClientApp } from '@citadel/app-chess/client';
-import { snakeClientApp } from '@citadel/app-snake/client';
+import { chatClientRegistration } from '@citadel/app-chat/client';
+import { chessClientRegistration } from '@citadel/app-chess/client';
+import { snakeClientRegistration } from '@citadel/app-snake/client';
 
 export type { AppViewProps, ClientAppModule } from '@citadel/platform/client';
 
-const bundledClientAppDefinitions = orderBundledAppEntries({
-  chat: chatClientApp,
-  chess: chessClientApp,
-  snake: snakeClientApp
-});
+type BundledClientAppRegistration = ClientAppRegistration<any>;
 
-export const allClientApps = bundledClientAppDefinitions.map((app) => app) satisfies ClientAppModule<any>[];
+const bundledClientAppDefinitions = orderBundledAppEntries({
+  chat: chatClientRegistration,
+  chess: chessClientRegistration,
+  snake: snakeClientRegistration
+}) satisfies BundledClientAppRegistration[];
+
+export const allClientApps = bundledClientAppDefinitions.map(
+  (registration) => registration.clientApp
+) satisfies ClientAppModule<any>[];
 
 export const clientApps = allClientApps;
 
