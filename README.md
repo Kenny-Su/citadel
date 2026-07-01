@@ -10,6 +10,7 @@ npm run dev
 ```
 
 The Vite client runs at `http://localhost:5173` and the Socket.IO/Express backend runs at `http://localhost:3001`.
+`npm run dev` builds workspace package artifacts once, then watches platform and app packages so their ignored `dist/` exports stay current while the server and client run.
 
 ## Test And Build
 
@@ -20,6 +21,7 @@ npm run test:production
 ```
 
 `npm run test:production` builds the client and checks that the production server serves `/health`, app routes such as `/apps/chat/spaces/general`, and legacy chat links such as `/rooms/general`.
+Generated root and package `dist/` directories are build output and are not committed.
 
 ## Production Run
 

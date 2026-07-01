@@ -249,6 +249,14 @@ describe('app package import boundaries', () => {
     );
     expect(rootPackage.scripts['typecheck:packages']).toBe('npm run typecheck --workspaces --if-present');
     expect(rootPackage.scripts.predev).toBe('npm run build:packages');
+    expect(rootPackage.scripts.dev).toBe(
+      'concurrently "npm run dev:packages" "npm run dev:server" "npm run dev:client"'
+    );
+    expect(rootPackage.scripts['dev:packages']).toBe(
+      'concurrently "npm run build:watch -w @citadel/platform" "npm run build:watch -w @citadel/app-chat" "npm run build:watch -w @citadel/app-chess" "npm run build:watch -w @citadel/app-snake"'
+    );
+    expect(rootPackage.scripts['dev:server']).toBe('tsx watch src/server/index.ts');
+    expect(rootPackage.scripts['dev:client']).toBe('vite --host 0.0.0.0');
     expect(rootPackage.scripts.prestart).toBe('npm run build:packages');
     expect(rootPackage.scripts.pretest).toBe('npm run build:packages');
     expect(rootPackage.scripts.build).toBe('npm run build:packages && npm run typecheck && npm run build:client');
@@ -271,6 +279,9 @@ describe('app package import boundaries', () => {
     expect(Object.values(platformPackage.exports).every((entry) => typeof entry !== 'string')).toBe(true);
     expect(Object.values(platformPackage.exports).every((entry) => typeof entry !== 'string' && entry.import.startsWith('./dist/'))).toBe(true);
     expect(platformPackage.scripts.build).toBe('tsc -p tsconfig.build.json');
+    expect(platformPackage.scripts['build:watch']).toBe(
+      'tsc -p tsconfig.build.json --watch --preserveWatchOutput'
+    );
     expect(platformPackage.scripts.clean).toBe("node -e \"fs.rmSync('dist', { recursive: true, force: true })\"");
     expect(platformPackage.scripts.typecheck).toBe('tsc -p tsconfig.json --noEmit');
 
@@ -300,6 +311,9 @@ describe('app package import boundaries', () => {
       expect(Object.values(appPackage.exports).every((entry) => typeof entry !== 'string')).toBe(true);
       expect(Object.values(appPackage.exports).every((entry) => typeof entry !== 'string' && entry.import.startsWith('./dist/'))).toBe(true);
       expect(appPackage.scripts.build).toBe('tsc -p tsconfig.build.json');
+      expect(appPackage.scripts['build:watch']).toBe(
+        'tsc -p tsconfig.build.json --watch --preserveWatchOutput'
+      );
       expect(appPackage.scripts.clean).toBe("node -e \"fs.rmSync('dist', { recursive: true, force: true })\"");
       expect(appPackage.scripts.typecheck).toBe('tsc -p tsconfig.json --noEmit');
       expect(appPackage.dependencies?.['@citadel/platform']).toBe('0.1.0');

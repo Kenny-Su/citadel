@@ -39,6 +39,7 @@ Workspace packages exist under `packages/` as the scaffold for the source split.
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` export `.`, `./client`, and `./server`.
 - Each workspace package has a package-local no-emit TypeScript check. These checks prove package isolation without producing JavaScript or declarations.
 - Each workspace package also has a local package build that emits JavaScript and declarations into its ignored `dist/` directory. Package `exports` point at those built artifacts, and the host consumes packages through workspace package resolution rather than source aliases.
+- Local development prebuilds these package artifacts once, then runs package build watchers alongside the server and Vite client so `dist/` exports stay fresh during edits.
 
 Shared platform payloads and SQLite persistence are platform-owned under `packages/platform/src`.
 All bundled apps are source-owning workspace packages: their implementations live under `packages/apps/<app>/src`.

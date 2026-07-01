@@ -14,7 +14,8 @@
   },
   "scripts": {
     "predev": "npm run build:packages",
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev": "concurrently \"npm run dev:packages\" \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:packages": "concurrently \"npm run build:watch -w @citadel/platform\" \"npm run build:watch -w @citadel/app-chat\" \"npm run build:watch -w @citadel/app-chess\" \"npm run build:watch -w @citadel/app-snake\"",
     "dev:client": "vite --host 0.0.0.0",
     "dev:server": "tsx watch src/server/index.ts",
     "prestart": "npm run build:packages",
