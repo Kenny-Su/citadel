@@ -133,13 +133,23 @@ type PackedWorkspaceAppResult = {
   files: string[];
 };
 
-const packedAppSources = {
+const packedLocalPackageSources = {
+  '@citadel/platform': 'packages/platform',
   '@citadel/app-chat': 'packages/apps/chat',
   '@citadel/app-chess': 'packages/apps/chess',
   '@citadel/app-snake': 'packages/apps/snake'
 } as const;
 
-const packedAppPackageNames = Object.keys(packedAppSources) as Array<keyof typeof packedAppSources>;
+const packedAppSources = {
+  '@citadel/app-chat': packedLocalPackageSources['@citadel/app-chat'],
+  '@citadel/app-chess': packedLocalPackageSources['@citadel/app-chess'],
+  '@citadel/app-snake': packedLocalPackageSources['@citadel/app-snake']
+} as const;
+
+type PackedLocalPackageName = keyof typeof packedLocalPackageSources;
+type PackedAppPackageName = keyof typeof packedAppSources;
+
+const packedAppPackageNames = Object.keys(packedAppSources) as PackedAppPackageName[];
 
 function runNpm(args: string[], options: { cacheDir: string }) {
   return execFileSync('npm', args, {
@@ -154,7 +164,7 @@ function runNpm(args: string[], options: { cacheDir: string }) {
 }
 
 function packApp(
-  packageName: keyof typeof packedAppSources,
+  packageName: PackedLocalPackageName,
   options: { cacheDir: string; destinationDir: string; skipBuild?: boolean }
 ) {
   const args = [
@@ -196,7 +206,7 @@ function packSnake(options: { cacheDir: string; destinationDir: string; skipBuil
 function installPackedAppsHost(options: {
   cacheDir: string;
   rootDir: string;
-  packages: Array<keyof typeof packedAppSources>;
+  packages: PackedAppPackageName[];
 }) {
   const packDir = join(options.rootDir, 'packs');
   const hostDir = join(options.rootDir, 'host');
@@ -206,9 +216,13 @@ function installPackedAppsHost(options: {
   mkdirSync(hostDir, { recursive: true });
 
   runNpm(['run', 'build', '-w', '@citadel/platform'], { cacheDir: options.cacheDir });
+  tarballPaths['@citadel/platform'] = packApp('@citadel/platform', {
+    cacheDir: options.cacheDir,
+    destinationDir: packDir
+  }).tarballPath;
 
   for (const packageName of options.packages) {
-    runNpm(['run', 'build', '--prefix', join(process.cwd(), packedAppSources[packageName])], {
+    runNpm(['run', 'build', '--prefix', join(process.cwd(), packedLocalPackageSources[packageName])], {
       cacheDir: options.cacheDir
     });
     tarballPaths[packageName] = packApp(packageName, {
@@ -229,10 +243,12 @@ function installPackedAppsHost(options: {
         packageName,
         `file:${tarballPaths[packageName]}`
       ])),
-      '@citadel/platform': `file:${join(process.cwd(), 'packages/platform')}`,
+      '@citadel/platform': `file:${tarballPaths['@citadel/platform']}`,
       'chess.js': `file:${join(process.cwd(), 'node_modules/chess.js')}`,
+      express: `file:${join(process.cwd(), 'node_modules/express')}`,
       nanoid: `file:${join(process.cwd(), 'node_modules/nanoid')}`,
-      react: `file:${join(process.cwd(), 'node_modules/react')}`
+      react: `file:${join(process.cwd(), 'node_modules/react')}`,
+      'socket.io': `file:${join(process.cwd(), 'node_modules/socket.io')}`
     }
   }, null, 2));
   runNpm(['install', '--ignore-scripts', '--offline', '--prefix', hostDir], { cacheDir: options.cacheDir });
@@ -240,6 +256,7 @@ function installPackedAppsHost(options: {
   return {
     hostDir,
     installedAppDirs,
+    installedPlatformDir: join(hostDir, 'node_modules/@citadel/platform'),
     tarballPaths
   };
 }
@@ -253,6 +270,8 @@ function installPackedSnakeHost(options: { cacheDir: string; rootDir: string }) 
   return {
     hostDir: host.hostDir,
     installedSnakeDir: host.installedAppDirs['@citadel/app-snake'],
+    installedPlatformDir: host.installedPlatformDir,
+    platformTarballPath: host.tarballPaths['@citadel/platform'],
     tarballPath: host.tarballPaths['@citadel/app-snake']
   };
 }
@@ -448,6 +467,32 @@ describe('bundled app generator package resolution', () => {
     expect(packedFiles).not.toContain('tsconfig.build.json');
   });
 
+  it('packs platform as a built package artifact without source files', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+    const cacheDir = join(tempDir, 'npm-cache');
+
+    const { packResult, tarballPath } = packApp('@citadel/platform', {
+      cacheDir,
+      destinationDir: join(tempDir, 'packs'),
+      skipBuild: false
+    });
+    const packedFiles = packResult.files.map((file) => file.path).sort();
+
+    expect(existsSync(tarballPath)).toBe(true);
+    expect(packedFiles).toContain('package.json');
+    expect(packedFiles).toContain('dist/app.js');
+    expect(packedFiles).toContain('dist/app.d.ts');
+    expect(packedFiles).toContain('dist/client.js');
+    expect(packedFiles).toContain('dist/client.d.ts');
+    expect(packedFiles).toContain('dist/server.js');
+    expect(packedFiles).toContain('dist/server.d.ts');
+    expect(packedFiles.some((file) => file.startsWith('src/'))).toBe(false);
+    expect(packedFiles).not.toContain('app.ts');
+    expect(packedFiles).not.toContain('server.ts');
+    expect(packedFiles).not.toContain('tsconfig.json');
+    expect(packedFiles).not.toContain('tsconfig.build.json');
+  });
+
   it.each([
     {
       appId: 'chat',
@@ -625,7 +670,13 @@ describe('bundled app generator package resolution', () => {
   it('boots a snake-only host catalog from a packed external dependency', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
     const cacheDir = join(tempDir, 'npm-cache');
-    const { hostDir, installedSnakeDir, tarballPath } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
+    const {
+      hostDir,
+      installedPlatformDir,
+      installedSnakeDir,
+      platformTarballPath,
+      tarballPath
+    } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
     const probePath = join(hostDir, 'probe.ts');
     const hostPackage = JSON.parse(readFileSync(join(hostDir, 'package.json'), 'utf8')) as {
       workspaces: string[];
@@ -639,8 +690,11 @@ describe('bundled app generator package resolution', () => {
 
     expect(hostPackage.workspaces).toEqual([]);
     expect(workspaceApps.packages).toEqual([]);
+    expect(lstatSync(installedPlatformDir).isSymbolicLink()).toBe(false);
+    expect(readdirSync(installedPlatformDir).sort()).toEqual(['dist', 'package.json']);
     expect(lstatSync(installedSnakeDir).isSymbolicLink()).toBe(false);
     expect(readdirSync(installedSnakeDir).sort()).toEqual(['dist', 'package.json']);
+    expect(packageLock.packages[''].dependencies?.['@citadel/platform']).toBe(`file:${platformTarballPath}`);
     expect(packageLock.packages[''].dependencies?.['@citadel/app-snake']).toBe(`file:${tarballPath}`);
 
     await runGeneratorForPackages(hostDir, ['@citadel/app-snake']);
@@ -730,7 +784,7 @@ describe('bundled app generator package resolution', () => {
   it('generates a bundled app catalog from packed app dependency installs', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
     const cacheDir = join(tempDir, 'npm-cache');
-    const { hostDir, installedAppDirs, tarballPaths } = installPackedAppsHost({
+    const { hostDir, installedAppDirs, installedPlatformDir, tarballPaths } = installPackedAppsHost({
       cacheDir,
       rootDir: tempDir,
       packages: packedAppPackageNames
@@ -745,6 +799,10 @@ describe('bundled app generator package resolution', () => {
     const probePath = join(hostDir, 'probe.mjs');
 
     expect(hostPackage.workspaces).toEqual([]);
+    expect(lstatSync(installedPlatformDir).isSymbolicLink()).toBe(false);
+    expect(readdirSync(installedPlatformDir).sort()).toEqual(['dist', 'package.json']);
+    expect(JSON.parse(readFileSync(join(installedPlatformDir, 'package.json'), 'utf8')).name).toBe('@citadel/platform');
+    expect(packageLock.packages[''].dependencies?.['@citadel/platform']).toBe(`file:${tarballPaths['@citadel/platform']}`);
     for (const packageName of packedAppPackageNames) {
       const installedAppDir = installedAppDirs[packageName];
 

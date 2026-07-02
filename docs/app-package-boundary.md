@@ -45,9 +45,9 @@ Local package source exists under `packages/` as the current local development s
 
 - `@citadel/platform` owns its source under `packages/platform/src` and exports `./app`, `./client`, `./server-app`, `./persistence`, `./server`, and `./validation`.
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` export `.`, `./client`, and `./server`.
-- Each workspace package has a package-local no-emit TypeScript check. These checks prove package isolation without producing JavaScript or declarations.
-- Each workspace package also has a local package build that emits JavaScript and declarations into its ignored `dist/` directory. Package `exports` point at those built artifacts, and the host consumes packages through workspace package resolution rather than source aliases.
-- App package artifacts are built-package artifacts: npm pack allowlists `dist` plus `package.json`, so source files and TypeScript build configs are development inputs rather than external dependency contents.
+- Each local package has a package-local no-emit TypeScript check. These checks prove package isolation without producing JavaScript or declarations.
+- Each local package also has a local package build that emits JavaScript and declarations into its ignored `dist/` directory. Package `exports` point at those built artifacts, and the host consumes packages through package resolution rather than source aliases.
+- Platform and app package artifacts are built-package artifacts: npm pack allowlists `dist` plus `package.json`, so source files and TypeScript build configs are development inputs rather than external dependency contents.
 - Chat, Chess, and Snake are local-external pilots: root build scripts install them from packed artifacts instead of workspace build/watch maintenance. Snake still carries the external-host proof: tests pack it from the source path declared in `local-external-apps.json`, install the tarball through npm into a temp host with no workspaces and an empty `workspace-apps.json`, generate a Snake-only installed-app catalog, and boot the host/server path from that packed dependency shape.
 - Local development prebuilds any packages listed in `workspace-apps.json`, then runs those configured package build watchers alongside the platform watcher, server, and Vite client. Apps in the local-external pilot path are prepared through packed artifacts instead.
 

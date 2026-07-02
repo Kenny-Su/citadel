@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "exports": {
     "./app": {
       "types": "./dist/app.d.ts",
@@ -34,6 +37,11 @@
     "build:watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "nanoid": "^5.1.5",
+    "socket.io": "^4.8.1"
   },
   "peerDependencies": {
     "react": "^19.1.0"

@@ -677,6 +677,7 @@ describe('app package import boundaries', () => {
       expect(rootPackage.workspaces).not.toContain(app.packagePath);
     }
     expect(platformPackage.name).toBe('@citadel/platform');
+    expect(platformPackage.files).toEqual(['dist']);
     expect(platformPackage.exports).toEqual({
       './app': { types: './dist/app.d.ts', import: './dist/app.js' },
       './client': { types: './dist/client.d.ts', import: './dist/client.js' },
@@ -693,6 +694,11 @@ describe('app package import boundaries', () => {
     );
     expect(platformPackage.scripts.clean).toBe("node -e \"fs.rmSync('dist', { recursive: true, force: true })\"");
     expect(platformPackage.scripts.typecheck).toBe('tsc -p tsconfig.json --noEmit');
+    expect(platformPackage.dependencies).toEqual({
+      express: '^5.1.0',
+      nanoid: '^5.1.5',
+      'socket.io': '^4.8.1'
+    });
 
     for (const app of firstPartyWorkspaceApps) {
       const appPackage = jsonSource<PackageJson>(`${app.packagePath}/package.json`);
