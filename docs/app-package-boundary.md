@@ -18,6 +18,8 @@ Hosts may select installed apps that the current repo does not build. In that sh
 
 To add an external app to a host, add the app package as a dependency, add its package name to `bundled-apps.json`, leave it out of `workspace-apps.json`, run install, and then run `npm run generate:bundled-apps`. If the package is not installed, catalog generation fails against the expected `node_modules/<package>/package.json` path instead of looking for workspace source.
 
+Root lifecycle scripts build local workspace package artifacts before generating the installed-app catalog, because generation validates package `exports` by importing the built public surfaces. External app dependencies are expected to arrive already built.
+
 Platform contracts are split by environment inside `packages/platform/src`:
 
 - `appContract.ts`: neutral app metadata such as `AppManifest` and `AppPackageDescriptor`.

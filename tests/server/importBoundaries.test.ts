@@ -570,7 +570,7 @@ describe('app package import boundaries', () => {
     expect(rootPackage.scripts['typecheck:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs typecheck');
     expect(rootPackage.scripts['generate:bundled-apps']).toBe('node scripts/generate-bundled-apps.mjs');
     expect(rootPackage.scripts['check:bundled-apps']).toBe('node scripts/generate-bundled-apps.mjs --check');
-    expect(rootPackage.scripts.predev).toBe('npm run generate:bundled-apps && npm run build:packages');
+    expect(rootPackage.scripts.predev).toBe('npm run build:packages && npm run generate:bundled-apps');
     expect(rootPackage.scripts.dev).toBe(
       'concurrently "npm run dev:packages" "npm run dev:server" "npm run dev:client"'
     );
@@ -580,11 +580,11 @@ describe('app package import boundaries', () => {
     expect(rootPackage.scripts['dev:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs build:watch');
     expect(rootPackage.scripts['dev:server']).toBe('tsx watch src/server/index.ts');
     expect(rootPackage.scripts['dev:client']).toBe('vite --host 0.0.0.0');
-    expect(rootPackage.scripts.prestart).toBe('npm run generate:bundled-apps && npm run build:packages');
-    expect(rootPackage.scripts.pretest).toBe('npm run generate:bundled-apps && npm run build:packages');
+    expect(rootPackage.scripts.prestart).toBe('npm run build:packages && npm run generate:bundled-apps');
+    expect(rootPackage.scripts.pretest).toBe('npm run build:packages && npm run generate:bundled-apps');
     expect(rootPackage.scripts.test).toBe('npm run check:bundled-apps && vitest run');
     expect(rootPackage.scripts.build).toBe(
-      'npm run generate:bundled-apps && npm run build:packages && npm run typecheck && npm run build:client'
+      'npm run build:packages && npm run generate:bundled-apps && npm run typecheck && npm run build:client'
     );
     expect(rootPackage.scripts['build:packages']).toBe('npm run build:platform && npm run build:workspace-apps');
     expect(rootPackage.scripts['build:platform']).toBe('npm run build -w @citadel/platform');
