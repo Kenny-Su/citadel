@@ -18,7 +18,7 @@ function npmEnv() {
 
 function usage() {
   return [
-    'Usage: node scripts/pack-workspace-app.mjs <package-name> [--destination <dir>] [--skip-build] [--json]',
+    'Usage: node scripts/pack-local-package.mjs <package-name> [--destination <dir>] [--skip-build] [--json]',
     '',
     'Builds a local package source directory, then writes an npm package tarball for external-app install tests.'
   ].join('\n');
@@ -97,7 +97,7 @@ function readNpmOutput(args, options = {}) {
   });
 }
 
-export function packWorkspaceApp(options) {
+export function packLocalPackage(options) {
   const {
     packageName,
     configPath = defaultLocalExternalAppsConfigPath,
@@ -150,7 +150,7 @@ export function packWorkspaceApp(options) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const args = parseArgs(process.argv.slice(2));
-    const result = packWorkspaceApp({
+    const result = packLocalPackage({
       packageName: args.packageName,
       destinationDir: args.destinationDir,
       skipBuild: args.skipBuild,

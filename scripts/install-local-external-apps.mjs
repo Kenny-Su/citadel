@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { installPackedWorkspaceApp } from './install-packed-workspace-app.mjs';
+import { installPackedLocalPackage } from './install-packed-local-package.mjs';
 import {
   defaultLocalExternalAppsConfigPath as configPath,
   normalizeLocalExternalAppEntry,
@@ -94,7 +94,7 @@ export function installLocalExternalApps(options = {}) {
     skipPlatformBuild: options.skipPlatformBuild ?? false
   });
 
-  return config.packages.map((app) => (options.installPackedApp ?? installPackedWorkspaceApp)({
+  return config.packages.map((app) => (options.installPackedApp ?? installPackedLocalPackage)({
     packageName: app.packageName,
     configPath: options.configPath ?? configPath,
     installRootDir,

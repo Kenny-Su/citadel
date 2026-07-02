@@ -641,9 +641,9 @@ describe('app package import boundaries', () => {
     expect(rootPackage.scripts['install:local-external-apps']).toBe(
       'node scripts/install-local-external-apps.mjs --skip-platform-build'
     );
-    expect(rootPackage.scripts['pack:workspace-app']).toBe('node scripts/pack-workspace-app.mjs');
+    expect(rootPackage.scripts['pack:local-package']).toBe('node scripts/pack-local-package.mjs');
     expect(rootPackage.scripts['pack:app-snake']).toBe(
-      'node scripts/pack-workspace-app.mjs @citadel/app-snake'
+      'node scripts/pack-local-package.mjs @citadel/app-snake'
     );
     expect(rootPackage.scripts['clean:packages']).toBe('npm run clean -w @citadel/platform');
     expect(rootPackage.workspaces).toContain('packages/platform');
@@ -778,8 +778,8 @@ describe('app package import boundaries', () => {
   it('builds package artifacts without making dist the source of truth', () => {
     const gitignore = source('.gitignore');
     const packageBuildBase = jsonSource<PackageTsconfig>('tsconfig.package-build-base.json');
-    const packWorkspaceApp = source('scripts/pack-workspace-app.mjs');
-    const installPackedWorkspaceApp = source('scripts/install-packed-workspace-app.mjs');
+    const packLocalPackage = source('scripts/pack-local-package.mjs');
+    const installPackedLocalPackage = source('scripts/install-packed-local-package.mjs');
     const installLocalExternalApps = source('scripts/install-local-external-apps.mjs');
     const localExternalAppHelpers = source('scripts/local-external-apps.mjs');
 
@@ -788,19 +788,19 @@ describe('app package import boundaries', () => {
     expect(localExternalAppHelpers).toContain('local-external-apps.json');
     expect(localExternalAppHelpers).toContain('sourcePath');
     expect(localExternalAppHelpers).toContain('validatePackageName');
-    expect(packWorkspaceApp).toContain('.citadel/app-packs');
-    expect(packWorkspaceApp).toContain('.citadel/npm-cache');
-    expect(packWorkspaceApp).toContain("'pack'");
-    expect(packWorkspaceApp).toContain("'--pack-destination'");
-    expect(packWorkspaceApp).toContain('resolveLocalExternalAppSourceDir');
-    expect(packWorkspaceApp).toContain("'--prefix'");
-    expect(packWorkspaceApp).toContain("['run', 'build', '-w', '@citadel/platform']");
-    expect(packWorkspaceApp).not.toContain("['run', 'build', '-w', packageName]");
-    expect(installPackedWorkspaceApp).toContain("join(installRootDir, 'node_modules'");
-    expect(installPackedWorkspaceApp).toContain("execFileSync('tar'");
-    expect(installPackedWorkspaceApp).toContain("'--strip-components=1'");
+    expect(packLocalPackage).toContain('.citadel/app-packs');
+    expect(packLocalPackage).toContain('.citadel/npm-cache');
+    expect(packLocalPackage).toContain("'pack'");
+    expect(packLocalPackage).toContain("'--pack-destination'");
+    expect(packLocalPackage).toContain('resolveLocalExternalAppSourceDir');
+    expect(packLocalPackage).toContain("'--prefix'");
+    expect(packLocalPackage).toContain("['run', 'build', '-w', '@citadel/platform']");
+    expect(packLocalPackage).not.toContain("['run', 'build', '-w', packageName]");
+    expect(installPackedLocalPackage).toContain("join(installRootDir, 'node_modules'");
+    expect(installPackedLocalPackage).toContain("execFileSync('tar'");
+    expect(installPackedLocalPackage).toContain("'--strip-components=1'");
     expect(installLocalExternalApps).toContain('readLocalExternalAppsConfig');
-    expect(installLocalExternalApps).toContain('installPackedWorkspaceApp');
+    expect(installLocalExternalApps).toContain('installPackedLocalPackage');
     expect(installLocalExternalApps).toContain('--skip-platform-build');
     expect(installLocalExternalApps).toContain("['run', 'build', '-w', '@citadel/platform']");
     expect(installLocalExternalApps).toContain("'--prefix'");

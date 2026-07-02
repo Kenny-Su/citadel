@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { packWorkspaceApp } from './pack-workspace-app.mjs';
+import { packLocalPackage } from './pack-local-package.mjs';
 import { validatePackageName } from './generate-bundled-apps.mjs';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -10,7 +10,7 @@ const defaultDestinationDir = join(rootDir, '.citadel/app-packs');
 
 function usage() {
   return [
-    'Usage: node scripts/install-packed-workspace-app.mjs <package-name> [--root <dir>] [--destination <dir>] [--skip-build] [--json]',
+    'Usage: node scripts/install-packed-local-package.mjs <package-name> [--root <dir>] [--destination <dir>] [--skip-build] [--json]',
     '',
     'Packs a local app source package, then installs the packed artifact into <root>/node_modules.'
   ].join('\n');
@@ -92,7 +92,7 @@ export function installedPackageDir(packageName, installRootDir = rootDir) {
   return join(installRootDir, 'node_modules', ...packageName.split('/'));
 }
 
-export function installPackedWorkspaceApp(options) {
+export function installPackedLocalPackage(options) {
   const {
     packageName,
     configPath,
@@ -102,7 +102,7 @@ export function installPackedWorkspaceApp(options) {
     skipBuild = false,
     quiet = false
   } = options;
-  const packResult = packWorkspaceApp({
+  const packResult = packLocalPackage({
     packageName,
     configPath,
     destinationDir,
@@ -138,7 +138,7 @@ export function installPackedWorkspaceApp(options) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const args = parseArgs(process.argv.slice(2));
-    const result = installPackedWorkspaceApp({
+    const result = installPackedLocalPackage({
       packageName: args.packageName,
       installRootDir: args.installRootDir,
       destinationDir: args.destinationDir,

@@ -9,7 +9,7 @@ import { generateInstalledAppCatalog, resolveAppPackages, resolveInstalledPackag
 // @ts-expect-error The local external app installer is a Node ESM script exercised directly by Vitest.
 import { installLocalExternalApps } from '../../scripts/install-local-external-apps.mjs';
 // @ts-expect-error The installer is a Node ESM script exercised directly by Vitest.
-import { installPackedWorkspaceApp } from '../../scripts/install-packed-workspace-app.mjs';
+import { installPackedLocalPackage } from '../../scripts/install-packed-local-package.mjs';
 
 const validCitadelMetadata = {
   appId: 'demo',
@@ -168,7 +168,7 @@ function packApp(
   options: { cacheDir: string; destinationDir: string; skipBuild?: boolean }
 ) {
   const args = [
-    'scripts/pack-workspace-app.mjs',
+    'scripts/pack-local-package.mjs',
     packageName,
     '--destination',
     options.destinationDir,
@@ -517,7 +517,7 @@ describe('bundled app generator package resolution', () => {
 
     try {
       process.env.CITADEL_PACK_NPM_CACHE = cacheDir;
-      installPackedWorkspaceApp({
+      installPackedLocalPackage({
         packageName,
         installRootDir: tempDir,
         destinationDir: join(tempDir, 'packs'),
