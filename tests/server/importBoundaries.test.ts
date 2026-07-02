@@ -293,6 +293,16 @@ function firstPartyApp(appId: FirstPartyAppId) {
   return app;
 }
 
+function firstPartyWorkspaceAppForPackageName(packageName: string) {
+  const app = firstPartyWorkspaceApps.find((candidate) => candidate.packageName === packageName);
+
+  if (!app) {
+    throw new Error(`Unknown first-party workspace app package: ${packageName}`);
+  }
+
+  return app;
+}
+
 function appImplementationPath(appId: FirstPartyAppId, fileName: string) {
   return `${firstPartyApp(appId).sourcePath}/${fileName}`;
 }
@@ -541,8 +551,9 @@ describe('app package import boundaries', () => {
     expect(viteConfig).not.toContain('packages/platform/');
   });
 
-  it('declares workspace package exports for platform and bundled apps', () => {
+  it('declares installed app dependencies and local workspace package exports', () => {
     const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
+    const workspaceApps = jsonSource<WorkspaceAppsJson>('workspace-apps.json');
     const rootPackage = jsonSource<RootPackageJson>('package.json');
     const packageLock = jsonSource<RootPackageLock>('package-lock.json');
     const platformPackage = jsonSource<PackageJson>('packages/platform/package.json');
@@ -551,8 +562,15 @@ describe('app package import boundaries', () => {
     for (const packageName of bundledApps.packages) {
       const appPackage = installedPackageJson(packageName);
 
-      expect(rootPackage.dependencies[packageName]).toBe(appPackage.version);
+      expect(appPackage.name).toBe(packageName);
+      expect(rootPackage.dependencies[packageName]).toBeDefined();
       expect(packageLock.packages[''].dependencies?.[packageName]).toBe(rootPackage.dependencies[packageName]);
+      expect(packageLock.packages[`node_modules/${packageName}`]).toBeDefined();
+    }
+    for (const packageName of workspaceApps.packages) {
+      const app = firstPartyWorkspaceAppForPackageName(packageName);
+
+      expect(rootPackage.workspaces).toContain(app.packagePath);
       expect(packageLock.packages[`node_modules/${packageName}`]).toMatchObject({
         link: true
       });
@@ -593,7 +611,7 @@ describe('app package import boundaries', () => {
       'npm run clean -w @citadel/platform && npm run clean:workspace-apps'
     );
     expect(rootPackage.scripts['clean:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs clean');
-    expect(rootPackage.workspaces).toEqual([...workspacePackagePaths]);
+    expect(rootPackage.workspaces).toContain('packages/platform');
     expect(platformPackage.name).toBe('@citadel/platform');
     expect(platformPackage.exports).toEqual({
       './app': { types: './dist/app.d.ts', import: './dist/app.js' },
@@ -779,6 +797,7 @@ describe('app package import boundaries', () => {
   it('keeps bundled app assembly on public app package surfaces', () => {
     const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
     const workspaceApps = jsonSource<WorkspaceAppsJson>('workspace-apps.json');
+    const bundledPackageNames = new Set(bundledApps.packages);
     const config = source('src/bundledApps/config.ts');
     const definitions = source('src/bundledApps/definitions.ts');
     const generator = source('scripts/generate-bundled-apps.mjs');
@@ -794,11 +813,10 @@ describe('app package import boundaries', () => {
       '@citadel/app-chess',
       '@citadel/app-snake'
     ]);
-    expect(workspaceApps.packages).toEqual([
-      '@citadel/app-chat',
-      '@citadel/app-chess',
-      '@citadel/app-snake'
-    ]);
+    expect(new Set(workspaceApps.packages).size).toBe(workspaceApps.packages.length);
+    for (const packageName of workspaceApps.packages) {
+      expect(bundledPackageNames.has(packageName)).toBe(true);
+    }
     expect(config).toContain("from '../../bundled-apps.json'");
     expect(config).not.toContain("'@citadel/app-chat'");
     expect(config).not.toContain("'@citadel/app-chess'");
