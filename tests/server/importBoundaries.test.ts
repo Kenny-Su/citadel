@@ -645,9 +645,7 @@ describe('app package import boundaries', () => {
       'node scripts/install-local-external-apps.mjs --skip-platform-build'
     );
     expect(rootPackage.scripts['pack:local-package']).toBe('node scripts/pack-local-package.mjs');
-    expect(rootPackage.scripts['pack:app-snake']).toBe(
-      'node scripts/pack-local-package.mjs @citadel/app-snake'
-    );
+    expect(Object.keys(rootPackage.scripts).some((scriptName) => scriptName.startsWith('pack:app-'))).toBe(false);
     expect(rootPackage.scripts['clean:packages']).toBe('npm run clean -w @citadel/platform');
     expect(rootPackage.workspaces).toContain('packages/platform');
     for (const app of firstPartyWorkspaceApps) {

@@ -25,7 +25,6 @@
     "build:platform": "npm run build -w @citadel/platform",
     "install:local-external-apps": "node scripts/install-local-external-apps.mjs --skip-platform-build",
     "pack:local-package": "node scripts/pack-local-package.mjs",
-    "pack:app-snake": "node scripts/pack-local-package.mjs @citadel/app-snake",
     "clean:packages": "npm run clean -w @citadel/platform",
     "typecheck": "npm run typecheck:client && npm run typecheck:server && npm run typecheck:packages",
     "typecheck:client": "tsc -p tsconfig.json --noEmit",
