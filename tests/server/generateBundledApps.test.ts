@@ -133,6 +133,14 @@ type PackedWorkspaceAppResult = {
   files: string[];
 };
 
+const packedAppSources = {
+  '@citadel/app-chat': 'packages/apps/chat',
+  '@citadel/app-chess': 'packages/apps/chess',
+  '@citadel/app-snake': 'packages/apps/snake'
+} as const;
+
+const packedAppPackageNames = Object.keys(packedAppSources) as Array<keyof typeof packedAppSources>;
+
 function runNpm(args: string[], options: { cacheDir: string }) {
   return execFileSync('npm', args, {
     cwd: process.cwd(),
@@ -145,10 +153,13 @@ function runNpm(args: string[], options: { cacheDir: string }) {
   });
 }
 
-function packSnake(options: { cacheDir: string; destinationDir: string; skipBuild?: boolean }) {
+function packApp(
+  packageName: keyof typeof packedAppSources,
+  options: { cacheDir: string; destinationDir: string; skipBuild?: boolean }
+) {
   const args = [
     'scripts/pack-workspace-app.mjs',
-    '@citadel/app-snake',
+    packageName,
     '--destination',
     options.destinationDir,
     '--json'
@@ -178,25 +189,49 @@ function packSnake(options: { cacheDir: string; destinationDir: string; skipBuil
   };
 }
 
-function installPackedSnakeHost(options: { cacheDir: string; rootDir: string }) {
+function packSnake(options: { cacheDir: string; destinationDir: string; skipBuild?: boolean }) {
+  return packApp('@citadel/app-snake', options);
+}
+
+function installPackedAppsHost(options: {
+  cacheDir: string;
+  rootDir: string;
+  packages: Array<keyof typeof packedAppSources>;
+}) {
   const packDir = join(options.rootDir, 'packs');
   const hostDir = join(options.rootDir, 'host');
-  const installedSnakeDir = join(hostDir, 'node_modules/@citadel/app-snake');
+  const installedAppDirs: Record<string, string> = {};
+  const tarballPaths: Record<string, string> = {};
   mkdirSync(packDir, { recursive: true });
   mkdirSync(hostDir, { recursive: true });
 
   runNpm(['run', 'build', '-w', '@citadel/platform'], { cacheDir: options.cacheDir });
-  runNpm(['run', 'build', '--prefix', join(process.cwd(), 'packages/apps/snake')], { cacheDir: options.cacheDir });
-  const { tarballPath } = packSnake({ cacheDir: options.cacheDir, destinationDir: packDir });
+
+  for (const packageName of options.packages) {
+    runNpm(['run', 'build', '--prefix', join(process.cwd(), packedAppSources[packageName])], {
+      cacheDir: options.cacheDir
+    });
+    tarballPaths[packageName] = packApp(packageName, {
+      cacheDir: options.cacheDir,
+      destinationDir: packDir
+    }).tarballPath;
+    installedAppDirs[packageName] = join(hostDir, 'node_modules', ...packageName.split('/'));
+  }
+
   writeFileSync(join(hostDir, 'workspace-apps.json'), JSON.stringify({ packages: [] }, null, 2));
   writeFileSync(join(hostDir, 'package.json'), JSON.stringify({
-    name: 'snake-external-host-fixture',
+    name: 'external-app-host-fixture',
     private: true,
     type: 'module',
     workspaces: [],
     dependencies: {
-      '@citadel/app-snake': `file:${tarballPath}`,
+      ...Object.fromEntries(options.packages.map((packageName) => [
+        packageName,
+        `file:${tarballPaths[packageName]}`
+      ])),
       '@citadel/platform': `file:${join(process.cwd(), 'packages/platform')}`,
+      'chess.js': `file:${join(process.cwd(), 'node_modules/chess.js')}`,
+      nanoid: `file:${join(process.cwd(), 'node_modules/nanoid')}`,
       react: `file:${join(process.cwd(), 'node_modules/react')}`
     }
   }, null, 2));
@@ -204,8 +239,21 @@ function installPackedSnakeHost(options: { cacheDir: string; rootDir: string }) 
 
   return {
     hostDir,
-    installedSnakeDir,
-    tarballPath
+    installedAppDirs,
+    tarballPaths
+  };
+}
+
+function installPackedSnakeHost(options: { cacheDir: string; rootDir: string }) {
+  const host = installPackedAppsHost({
+    ...options,
+    packages: ['@citadel/app-snake']
+  });
+
+  return {
+    hostDir: host.hostDir,
+    installedSnakeDir: host.installedAppDirs['@citadel/app-snake'],
+    tarballPath: host.tarballPaths['@citadel/app-snake']
   };
 }
 
@@ -677,6 +725,109 @@ describe('bundled app generator package resolution', () => {
         snakes: []
       }
     });
+  });
+
+  it('generates a bundled app catalog from packed app dependency installs', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+    const cacheDir = join(tempDir, 'npm-cache');
+    const { hostDir, installedAppDirs, tarballPaths } = installPackedAppsHost({
+      cacheDir,
+      rootDir: tempDir,
+      packages: packedAppPackageNames
+    });
+    const [{ path: generatedCatalogPath }] = generatorOutputs(hostDir);
+    const hostPackage = JSON.parse(readFileSync(join(hostDir, 'package.json'), 'utf8')) as {
+      workspaces: string[];
+    };
+    const packageLock = JSON.parse(readFileSync(join(hostDir, 'package-lock.json'), 'utf8')) as {
+      packages: Record<string, { dependencies?: Record<string, string> }>;
+    };
+    const probePath = join(hostDir, 'probe.mjs');
+
+    expect(hostPackage.workspaces).toEqual([]);
+    for (const packageName of packedAppPackageNames) {
+      const installedAppDir = installedAppDirs[packageName];
+
+      expect(lstatSync(installedAppDir).isSymbolicLink()).toBe(false);
+      expect(readdirSync(installedAppDir).sort()).toEqual(['dist', 'package.json']);
+      expect(JSON.parse(readFileSync(join(installedAppDir, 'package.json'), 'utf8')).name).toBe(packageName);
+      expect(packageLock.packages[''].dependencies?.[packageName]).toBe(`file:${tarballPaths[packageName]}`);
+    }
+
+    await runGeneratorForPackages(hostDir, packedAppPackageNames);
+    transpileGeneratedCatalog(hostDir);
+    writeFileSync(probePath, [
+      "import { bundledInstalledApps, bundledAppDescriptorByPackageName, bundledClientRegistrationByPackageName, bundledServerRegistrationByPackageName } from './src/bundledApps/generatedAppCatalog.mjs';",
+      '',
+      'console.log(JSON.stringify({',
+      '  generatedSource: ' + JSON.stringify(readFileSync(generatedCatalogPath, 'utf8')) + ',',
+      '  apps: bundledInstalledApps.map((app) => ({',
+      '    appId: app.descriptor.appId,',
+      '    packageName: app.descriptor.packageName,',
+      '    manifestAppId: app.descriptor.manifest.appId,',
+      '    clientRegistrationAppId: app.clientRegistration.appId,',
+      '    serverRegistrationAppId: app.serverRegistration.appId,',
+      '    serverBundleAppId: app.serverRegistration.bundle.appId',
+      '  })),',
+      '  descriptorPackages: Object.keys(bundledAppDescriptorByPackageName),',
+      '  clientPackages: Object.keys(bundledClientRegistrationByPackageName),',
+      '  serverPackages: Object.keys(bundledServerRegistrationByPackageName)',
+      '}));'
+    ].join('\n'));
+
+    const probe = JSON.parse(execFileSync(process.execPath, [probePath], {
+      cwd: hostDir,
+      encoding: 'utf8'
+    })) as {
+      generatedSource: string;
+      apps: Array<{
+        appId: string;
+        packageName: string;
+        manifestAppId: string;
+        clientRegistrationAppId: string;
+        serverRegistrationAppId: string;
+        serverBundleAppId: string;
+      }>;
+      descriptorPackages: string[];
+      clientPackages: string[];
+      serverPackages: string[];
+    };
+
+    expect(probe.apps).toEqual([
+      {
+        appId: 'chat',
+        packageName: '@citadel/app-chat',
+        manifestAppId: 'chat',
+        clientRegistrationAppId: 'chat',
+        serverRegistrationAppId: 'chat',
+        serverBundleAppId: 'chat'
+      },
+      {
+        appId: 'chess',
+        packageName: '@citadel/app-chess',
+        manifestAppId: 'chess',
+        clientRegistrationAppId: 'chess',
+        serverRegistrationAppId: 'chess',
+        serverBundleAppId: 'chess'
+      },
+      {
+        appId: 'snake',
+        packageName: '@citadel/app-snake',
+        manifestAppId: 'snake',
+        clientRegistrationAppId: 'snake',
+        serverRegistrationAppId: 'snake',
+        serverBundleAppId: 'snake'
+      }
+    ]);
+    expect(probe.descriptorPackages).toEqual(packedAppPackageNames);
+    expect(probe.clientPackages).toEqual(packedAppPackageNames);
+    expect(probe.serverPackages).toEqual(packedAppPackageNames);
+    expect(probe.generatedSource).toContain(
+      "import { chatClientRegistration as bundledClientRegistration0 } from '@citadel/app-chat/client';"
+    );
+    expect(probe.generatedSource).toContain(
+      "import { chessServerRegistration as bundledServerRegistration1 } from '@citadel/app-chess/server';"
+    );
   });
 
   it('rejects installed packages whose client registration export is missing', async () => {
