@@ -85,6 +85,7 @@ const deletedCompatibilityPaths = [
 
 const bundledAppAssemblyFiles = [
   'bundled-apps.json',
+  'local-external-apps.json',
   'src/bundledApps/config.ts',
   'src/bundledApps/definitions.ts',
   'src/bundledApps/generatedAppCatalog.ts',
@@ -568,11 +569,15 @@ describe('app package import boundaries', () => {
   it('declares installed app dependencies and local workspace package exports', () => {
     const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
     const workspaceApps = jsonSource<WorkspaceAppsJson>('workspace-apps.json');
+    const localExternalApps = jsonSource<WorkspaceAppsJson>('local-external-apps.json');
     const rootPackage = jsonSource<RootPackageJson>('package.json');
     const packageLock = jsonSource<RootPackageLock>('package-lock.json');
     const platformPackage = jsonSource<PackageJson>('packages/platform/package.json');
+    const bundledPackageNames = new Set(bundledApps.packages);
+    const workspacePackageNames = new Set(workspaceApps.packages);
 
     expect(rootPackage.dependencies['@citadel/platform']).toBe(platformPackage.version);
+    expect(localExternalApps.packages).toEqual(['@citadel/app-snake']);
     for (const packageName of bundledApps.packages) {
       const appPackage = installedPackageJson(packageName);
 
@@ -588,6 +593,14 @@ describe('app package import boundaries', () => {
       expect(packageLock.packages[`node_modules/${packageName}`]).toMatchObject({
         link: true
       });
+    }
+    for (const packageName of localExternalApps.packages) {
+      const app = firstPartyWorkspaceAppForPackageName(packageName);
+
+      expect(bundledPackageNames.has(packageName)).toBe(true);
+      expect(workspacePackageNames.has(packageName)).toBe(false);
+      expect(rootPackage.workspaces).toContain(app.packagePath);
+      expect(packageLock.packages[`node_modules/${packageName}`]).toBeDefined();
     }
     expect(packageLock.packages[''].dependencies?.['@citadel/platform']).toBe(platformPackage.version);
     expect(packageLock.packages['node_modules/@citadel/platform']).toMatchObject({
@@ -618,9 +631,12 @@ describe('app package import boundaries', () => {
     expect(rootPackage.scripts.build).toBe(
       'npm run build:packages && npm run generate:bundled-apps && npm run typecheck && npm run build:client'
     );
-    expect(rootPackage.scripts['build:packages']).toBe('npm run build:platform && npm run build:workspace-apps');
+    expect(rootPackage.scripts['build:packages']).toBe(
+      'npm run build:platform && npm run build:workspace-apps && npm run install:local-external-apps'
+    );
     expect(rootPackage.scripts['build:platform']).toBe('npm run build -w @citadel/platform');
     expect(rootPackage.scripts['build:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs build');
+    expect(rootPackage.scripts['install:local-external-apps']).toBe('node scripts/install-local-external-apps.mjs');
     expect(rootPackage.scripts['pack:workspace-app']).toBe('node scripts/pack-workspace-app.mjs');
     expect(rootPackage.scripts['pack:app-snake']).toBe(
       'node scripts/pack-workspace-app.mjs @citadel/app-snake'
@@ -753,6 +769,8 @@ describe('app package import boundaries', () => {
     const gitignore = source('.gitignore');
     const packageBuildBase = jsonSource<PackageTsconfig>('tsconfig.package-build-base.json');
     const packWorkspaceApp = source('scripts/pack-workspace-app.mjs');
+    const installPackedWorkspaceApp = source('scripts/install-packed-workspace-app.mjs');
+    const installLocalExternalApps = source('scripts/install-local-external-apps.mjs');
 
     expect(gitignore).toContain('dist/');
     expect(gitignore).toContain('.citadel/');
@@ -762,6 +780,11 @@ describe('app package import boundaries', () => {
     expect(packWorkspaceApp).toContain("'--pack-destination'");
     expect(packWorkspaceApp).toContain("['run', 'build', '-w', '@citadel/platform']");
     expect(packWorkspaceApp).toContain("['run', 'build', '-w', packageName]");
+    expect(installPackedWorkspaceApp).toContain("join(installRootDir, 'node_modules'");
+    expect(installPackedWorkspaceApp).toContain("execFileSync('tar'");
+    expect(installPackedWorkspaceApp).toContain("'--strip-components=1'");
+    expect(installLocalExternalApps).toContain('local-external-apps.json');
+    expect(installLocalExternalApps).toContain('installPackedWorkspaceApp');
     expect(packageBuildBase.extends).toBe('./tsconfig.package-base.json');
     expect(packageBuildBase.compilerOptions).toMatchObject({
       declaration: true,
@@ -823,6 +846,7 @@ describe('app package import boundaries', () => {
   it('keeps bundled app assembly on public app package surfaces', () => {
     const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
     const workspaceApps = jsonSource<WorkspaceAppsJson>('workspace-apps.json');
+    const localExternalApps = jsonSource<WorkspaceAppsJson>('local-external-apps.json');
     const bundledPackageNames = new Set(bundledApps.packages);
     const config = source('src/bundledApps/config.ts');
     const definitions = source('src/bundledApps/definitions.ts');
@@ -839,6 +863,11 @@ describe('app package import boundaries', () => {
       '@citadel/app-chess',
       '@citadel/app-snake'
     ]);
+    expect(workspaceApps.packages).toEqual([
+      '@citadel/app-chat',
+      '@citadel/app-chess'
+    ]);
+    expect(localExternalApps.packages).toEqual(['@citadel/app-snake']);
     expect(new Set(workspaceApps.packages).size).toBe(workspaceApps.packages.length);
     for (const packageName of workspaceApps.packages) {
       expect(bundledPackageNames.has(packageName)).toBe(true);
