@@ -53,6 +53,9 @@ type CitadelPackageMetadata = {
   defaultSpaceId: string;
   persistence: 'none' | 'sqlite';
   version: string;
+  capabilities: {
+    legacyServices: string[];
+  };
   client: {
     subpath: './client';
     registrationExport: string;
@@ -195,6 +198,7 @@ describe('bundled server app registry', () => {
           version: metadata.version
         },
         packageName: metadata.packageName,
+        capabilities: metadata.capabilities,
         client: metadata.client,
         server: metadata.server
       }))

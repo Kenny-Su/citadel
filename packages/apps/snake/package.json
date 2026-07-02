@@ -26,6 +26,9 @@
     "defaultSpaceId": "general",
     "persistence": "none",
     "version": "0.1.0",
+    "capabilities": {
+      "legacyServices": []
+    },
     "client": {
       "subpath": "./client",
       "registrationExport": "snakeClientRegistration"

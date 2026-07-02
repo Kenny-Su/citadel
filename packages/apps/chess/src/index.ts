@@ -13,6 +13,11 @@ export const chessAppPackage = {
   appId: chessManifest.appId,
   manifest: chessManifest,
   packageName: '@citadel/app-chess',
+  capabilities: {
+    legacyServices: [
+      'chessRepository'
+    ]
+  },
   client: {
     subpath: './client',
     registrationExport: 'chessClientRegistration'

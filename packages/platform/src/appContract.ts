@@ -8,10 +8,15 @@ export type AppManifest = {
   version: string;
 };
 
+export type AppPackageCapabilities = {
+  legacyServices: string[];
+};
+
 export type AppPackageDescriptor = {
   appId: AppId;
   manifest: AppManifest;
   packageName: string;
+  capabilities: AppPackageCapabilities;
   client: {
     subpath: './client';
     registrationExport: string;

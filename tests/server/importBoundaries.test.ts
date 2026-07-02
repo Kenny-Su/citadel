@@ -114,6 +114,9 @@ type CitadelPackageMetadata = {
   defaultSpaceId: string;
   persistence: 'none' | 'sqlite';
   version: string;
+  capabilities: {
+    legacyServices: string[];
+  };
   client: {
     subpath: string;
     registrationExport: string;
@@ -131,6 +134,9 @@ const expectedCitadelMetadataByAppId = {
     defaultSpaceId: 'general',
     persistence: 'sqlite',
     version: '0.1.0',
+    capabilities: {
+      legacyServices: ['chatRepository', 'messageStore', 'messageRateLimit']
+    },
     client: {
       subpath: './client',
       registrationExport: 'chatClientRegistration'
@@ -146,6 +152,9 @@ const expectedCitadelMetadataByAppId = {
     defaultSpaceId: 'general',
     persistence: 'sqlite',
     version: '0.1.0',
+    capabilities: {
+      legacyServices: ['chessRepository']
+    },
     client: {
       subpath: './client',
       registrationExport: 'chessClientRegistration'
@@ -161,6 +170,9 @@ const expectedCitadelMetadataByAppId = {
     defaultSpaceId: 'general',
     persistence: 'none',
     version: '0.1.0',
+    capabilities: {
+      legacyServices: []
+    },
     client: {
       subpath: './client',
       registrationExport: 'snakeClientRegistration'
@@ -283,7 +295,7 @@ describe('app package import boundaries', () => {
       expect(indexSource).toContain("} from './shared.js'");
       expect(indexSource).not.toMatch(/from ['"]\.\/client(?:\.js)?['"]/);
       expect(indexSource).not.toMatch(/from ['"]\.\/serverEntry(?:\.js)?['"]/);
-      expect(indexSource).not.toMatch(
+      expect(indexSource.replace(/(['"])(?:\\.|(?!\1).)*\1/g, '')).not.toMatch(
         /ServerBundle|Repository|messageStore|repository|validation|create[A-Z].*App/
       );
     }
@@ -682,6 +694,7 @@ describe('app package import boundaries', () => {
       expect(generatedCatalog).toContain(`appId: "${metadata.appId}"`);
       expect(generatedCatalog).toContain(`label: "${metadata.label}"`);
       expect(generatedCatalog).toContain(`persistence: "${metadata.persistence}"`);
+      expect(generatedCatalog).toContain(`legacyServices: ${JSON.stringify(metadata.capabilities.legacyServices)}`);
       expect(generatedCatalog).toContain(`registrationExport: "${metadata.client.registrationExport}"`);
       expect(generatedCatalog).toContain(`registrationExport: "${metadata.server.registrationExport}"`);
       expect(generatedCatalog).not.toContain(`from '@citadel/app-${appId}'`);

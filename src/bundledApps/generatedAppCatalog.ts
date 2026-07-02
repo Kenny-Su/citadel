@@ -25,6 +25,9 @@ const bundledAppDescriptor0 = {
     version: "0.1.0"
   },
   packageName: "@citadel/app-chat",
+  capabilities: {
+    legacyServices: ["chatRepository","messageStore","messageRateLimit"]
+  },
   client: {
     subpath: "./client",
     registrationExport: "chatClientRegistration"
@@ -45,6 +48,9 @@ const bundledAppDescriptor1 = {
     version: "0.1.0"
   },
   packageName: "@citadel/app-chess",
+  capabilities: {
+    legacyServices: ["chessRepository"]
+  },
   client: {
     subpath: "./client",
     registrationExport: "chessClientRegistration"
@@ -65,6 +71,9 @@ const bundledAppDescriptor2 = {
     version: "0.1.0"
   },
   packageName: "@citadel/app-snake",
+  capabilities: {
+    legacyServices: []
+  },
   client: {
     subpath: "./client",
     registrationExport: "snakeClientRegistration"

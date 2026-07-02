@@ -121,6 +121,7 @@ export function parseCitadelPackageMetadata(packageName, packageJson) {
       version: readRequiredString(metadata, 'version', packageName)
     },
     packageName,
+    capabilities: readCapabilities(metadata, packageName),
     client: readRegistrationMetadata(metadata, 'client', packageName),
     server: readRegistrationMetadata(metadata, 'server', packageName)
   };
@@ -158,6 +159,30 @@ function readRegistrationMetadata(metadata, environment, packageName) {
   return {
     subpath: readSubpath(registration, environment, packageName),
     registrationExport: readRequiredString(registration, 'registrationExport', packageName)
+  };
+}
+
+function readCapabilities(metadata, packageName) {
+  const capabilities = metadata.capabilities;
+
+  if (!capabilities || typeof capabilities !== 'object') {
+    throw new Error(`Bundled app package ${packageName} citadel.capabilities must declare capability metadata`);
+  }
+
+  const legacyServices = capabilities.legacyServices;
+
+  if (!Array.isArray(legacyServices)) {
+    throw new Error(`Bundled app package ${packageName} citadel.capabilities.legacyServices must be an array`);
+  }
+
+  if (!legacyServices.every((serviceName) => typeof serviceName === 'string' && serviceName.length > 0)) {
+    throw new Error(
+      `Bundled app package ${packageName} citadel.capabilities.legacyServices must contain only non-empty strings`
+    );
+  }
+
+  return {
+    legacyServices
   };
 }
 
@@ -201,6 +226,7 @@ function assertDescriptorMatchesMetadata(packageName, descriptor, metadataDescri
   return descriptor.appId === metadataDescriptor.appId
     && descriptor.packageName === metadataDescriptor.packageName
     && JSON.stringify(descriptor.manifest) === JSON.stringify(metadataDescriptor.manifest)
+    && JSON.stringify(descriptor.capabilities) === JSON.stringify(metadataDescriptor.capabilities)
     && JSON.stringify(descriptor.client) === JSON.stringify(metadataDescriptor.client)
     && JSON.stringify(descriptor.server) === JSON.stringify(metadataDescriptor.server);
 }
@@ -272,6 +298,9 @@ function generateDescriptorLiteral(appPackage) {
     `    version: ${literal(appPackage.manifest.version)}`,
     '  },',
     `  packageName: ${literal(appPackage.packageName)},`,
+    '  capabilities: {',
+    `    legacyServices: ${literal(appPackage.capabilities.legacyServices)}`,
+    '  },',
     '  client: {',
     `    subpath: ${literal(appPackage.client.subpath)},`,
     `    registrationExport: ${literal(appPackage.client.registrationExport)}`,

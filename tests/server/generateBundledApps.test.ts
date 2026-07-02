@@ -13,6 +13,9 @@ const validCitadelMetadata = {
   defaultSpaceId: 'general',
   persistence: 'sqlite',
   version: '0.1.0',
+  capabilities: {
+    legacyServices: ['demoRepository']
+  },
   client: {
     subpath: './browser',
     registrationExport: 'demoBrowserRegistration'
@@ -74,6 +77,7 @@ function writeRuntimePackage(
         version: metadata.version
       },
       packageName,
+      capabilities: metadata.capabilities,
       client: metadata.client,
       server: metadata.server
     })};`
@@ -233,6 +237,7 @@ describe('bundled app generator package resolution', () => {
         version: '0.1.0'
       },
       packageName: '@example/app-demo',
+      capabilities: validCitadelMetadata.capabilities,
       client: validCitadelMetadata.client,
       server: validCitadelMetadata.server
     });
@@ -284,6 +289,20 @@ describe('bundled app generator package resolution', () => {
         persistence: 'json'
       }
     });
+    writePackage(tempDir, '@example/app-missing-capabilities', {
+      citadel: {
+        ...validCitadelMetadata,
+        capabilities: undefined
+      }
+    });
+    writePackage(tempDir, '@example/app-invalid-legacy-services', {
+      citadel: {
+        ...validCitadelMetadata,
+        capabilities: {
+          legacyServices: ['demoRepository', 7]
+        }
+      }
+    });
     writePackage(tempDir, '@example/app-a');
     writePackage(tempDir, '@example/app-b');
 
@@ -296,6 +315,16 @@ describe('bundled app generator package resolution', () => {
       packages: ['@example/app-invalid-persistence']
     }, { rootDir: tempDir })).toThrow(
       'Bundled app package @example/app-invalid-persistence citadel.persistence must be "none" or "sqlite"'
+    );
+    expect(() => resolveAppPackages({
+      packages: ['@example/app-missing-capabilities']
+    }, { rootDir: tempDir })).toThrow(
+      'Bundled app package @example/app-missing-capabilities citadel.capabilities must declare capability metadata'
+    );
+    expect(() => resolveAppPackages({
+      packages: ['@example/app-invalid-legacy-services']
+    }, { rootDir: tempDir })).toThrow(
+      'Bundled app package @example/app-invalid-legacy-services citadel.capabilities.legacyServices must contain only non-empty strings'
     );
     expect(() => resolveAppPackages({
       packages: ['@example/app-a', '@example/app-b']
@@ -342,6 +371,7 @@ describe('bundled app generator package resolution', () => {
     expect(generatedCatalog).toContain('"@citadel/app-snake"');
     expect(generatedCatalog).toContain('appId: "snake"');
     expect(generatedCatalog).toContain('persistence: "none"');
+    expect(generatedCatalog).toContain('legacyServices: []');
     expect(generatedCatalog).toContain('bundledInstalledApps');
     expect(generatedCatalog).toContain('bundledAppDescriptorByPackageName');
     expect(generatedCatalog).toContain('bundledClientRegistrationByPackageName');
@@ -471,6 +501,7 @@ describe('bundled app generator package resolution', () => {
           version: '0.1.0'
         },
         packageName: '@example/app-demo',
+        capabilities: validCitadelMetadata.capabilities,
         client: validCitadelMetadata.client,
         server: validCitadelMetadata.server
       }
@@ -548,6 +579,9 @@ describe('bundled app generator package resolution', () => {
       defaultSpaceId: 'general',
       persistence: 'none',
       version: '0.1.0'
+    });
+    expect(appPackage.capabilities).toEqual({
+      legacyServices: []
     });
     expect(generateInstalledAppCatalog([appPackage])).toContain(
       "import { snakeClientRegistration as bundledClientRegistration0 } from '@citadel/app-snake/client';"
