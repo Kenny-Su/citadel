@@ -454,8 +454,12 @@ describe('bundled app generator package resolution', () => {
       serverModuleAppId: string;
       platformAppIds: string[];
       initialState: {
+        stage: string;
         width: number;
         height: number;
+        requiredReadyCount: number;
+        readyCount: number;
+        spectatorCount: number;
         snakes: unknown[];
       };
     };
@@ -470,8 +474,12 @@ describe('bundled app generator package resolution', () => {
       serverModuleAppId: 'snake',
       platformAppIds: ['snake'],
       initialState: {
+        stage: 'waiting',
         width: 20,
         height: 16,
+        requiredReadyCount: 2,
+        readyCount: 0,
+        spectatorCount: 0,
         snakes: []
       }
     });
@@ -530,7 +538,20 @@ describe('bundled app generator package resolution', () => {
       '  manifestAppId: root.snakeManifest.appId,',
       '  descriptorPackageName: root.snakeAppPackage.packageName,',
       '  clientRegistrationAppId: client.snakeClientRegistration.appId,',
-      '  serverRegistrationAppId: server.snakeServerRegistration.appId',
+      '  serverRegistrationAppId: server.snakeServerRegistration.appId,',
+      '  initialState: server.snakeServerRegistration.createServerApp({',
+      '    database: { database: {} }',
+      '  }).getInitialState({',
+      "    appId: 'snake',",
+      "    spaceId: 'arena',",
+      '    participants: [],',
+      '    emitToSpace() {},',
+      '    emitToParticipant() {},',
+      '    emitSpaceState() {},',
+      '    getAppState() { return undefined; },',
+      '    setAppState() {},',
+      '    clearAppState() {}',
+      '  })',
       '}));'
     ].join('\n'));
 
@@ -545,6 +566,12 @@ describe('bundled app generator package resolution', () => {
       descriptorPackageName: string;
       clientRegistrationAppId: string;
       serverRegistrationAppId: string;
+      initialState: {
+        stage: string;
+        requiredReadyCount: number;
+        readyCount: number;
+        spectatorCount: number;
+      };
     };
 
     expect(probe.rootKeys).toEqual(['snakeAppPackage', 'snakeManifest']);
@@ -558,6 +585,12 @@ describe('bundled app generator package resolution', () => {
     expect(probe.descriptorPackageName).toBe('@citadel/app-snake');
     expect(probe.clientRegistrationAppId).toBe('snake');
     expect(probe.serverRegistrationAppId).toBe('snake');
+    expect(probe.initialState).toMatchObject({
+      stage: 'waiting',
+      requiredReadyCount: 2,
+      readyCount: 0,
+      spectatorCount: 0
+    });
   });
 
   it('resolves snake from the packed package manifest shape', () => {
