@@ -50,6 +50,12 @@ Shared server app services stay platform-only in `@citadel/platform/server-app`.
 
 Neutral app package descriptors expose manifest, package name, app capabilities, and intended client/server registration export names. They are the runtime/public API mirror of the package manifest metadata, and must not import client or server implementation modules directly.
 
+## App-Owned State Machines
+
+Apps own their domain state machines. Stages and rules such as Snake `waiting`/`playing`, player readiness, Chess turns/checkmate, or Chat typing are app state and app events. The platform should continue to provide app-neutral primitives: identity, presence, transport, app state storage, and persistence contracts.
+
+App lifecycle terms may appear in app packages, app public types, and app protocol docs. They must not appear in platform contracts, host registries, generated app selection, or generic server service contracts. External apps should be able to add lobby, ready, round, match, or end-state rules without changing platform source.
+
 Package exports map each public surface to built JavaScript and declarations, for example:
 
 ```json

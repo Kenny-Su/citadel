@@ -286,22 +286,23 @@ describe('app package import boundaries', () => {
     );
   });
 
-  it('keeps snake stage rules out of platform and host assembly', () => {
-    const forbiddenSnakeStageLogic =
-      /snake:ready|SnakeStage|stage: ['"](?:waiting|playing)['"]|['"](?:waiting|playing)['"]|requiredReadyCount|readyCount|spectatorCount/;
+  it('keeps app-owned state machine rules out of platform and host assembly', () => {
+    const forbiddenAppStateMachineLogic =
+      /snake:ready|SnakeStage|stage: ['"](?:waiting|playing)['"]|['"](?:waiting|playing|checkmate|typing)['"]|requiredReadyCount|readyCount|spectatorCount|lobby|ready|checkmate/;
     const hostRuntimeFiles = [
       'src/bundledApps/serverRegistry.ts',
       'src/bundledApps/catalog.ts',
       'src/client/appRegistry.tsx',
-      'src/server/chatServer.ts'
+      'src/server/chatServer.ts',
+      'src/bundledApps/serverServices.ts'
     ];
 
     for (const moduleName of platformSourceModuleNames) {
-      expect(source(`packages/platform/src/${moduleName}.ts`)).not.toMatch(forbiddenSnakeStageLogic);
+      expect(source(`packages/platform/src/${moduleName}.ts`)).not.toMatch(forbiddenAppStateMachineLogic);
     }
 
     for (const fileName of hostRuntimeFiles) {
-      expect(source(fileName)).not.toMatch(forbiddenSnakeStageLogic);
+      expect(source(fileName)).not.toMatch(forbiddenAppStateMachineLogic);
     }
 
     expect(source(appImplementationPath('snake', 'server.ts'))).toContain('snake:ready');
@@ -582,6 +583,14 @@ describe('app package import boundaries', () => {
 
       expect(sortedExportKeys(module)).toEqual([...expectedKeys].sort());
     }
+  });
+
+  it('keeps snake lifecycle exports type-only on the neutral package surface', () => {
+    const snakeIndex = source(appImplementationPath('snake', 'index.ts'));
+
+    expect(snakeIndex).toContain('export type {');
+    expect(snakeIndex).toMatch(/SnakeDirectionPayload,\s+SnakePlayer,\s+SnakeReadyPayload,\s+SnakeSegment,\s+SnakeStage,\s+SnakeState/s);
+    expect(publicRuntimeExports['@citadel/app-snake']).toEqual(['snakeAppPackage', 'snakeManifest']);
   });
 
   it('checks each package through a package-local no-emit tsconfig', () => {
