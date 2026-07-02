@@ -686,6 +686,7 @@ describe('app package import boundaries', () => {
     const config = source('src/bundledApps/config.ts');
     const definitions = source('src/bundledApps/definitions.ts');
     const generator = source('scripts/generate-bundled-apps.mjs');
+    const workspaceRunner = source('scripts/run-workspace-apps.mjs');
     const generatedCatalog = source('src/bundledApps/generatedAppCatalog.ts');
     const resolver = source('src/bundledApps/resolver.ts');
     const catalog = source('src/bundledApps/catalog.ts');
@@ -712,6 +713,9 @@ describe('app package import boundaries', () => {
     expect(generator).not.toContain('rootPackagePath');
     expect(generator).not.toContain('readWorkspacePackageManifests');
     expect(generator).not.toContain('root workspaces');
+    expect(workspaceRunner).toContain('workspace-apps.json');
+    expect(workspaceRunner).not.toContain('bundled-apps.json');
+    expect(workspaceRunner).not.toContain('generatedAppCatalog');
 
     for (const appId of appIds) {
       const metadata = expectedCitadelMetadataByAppId[appId];

@@ -12,6 +12,8 @@ Each bundled app exposes three environment-specific surfaces:
 
 Bundled app order is declared as installed package names in `bundled-apps.json`. Local app packages that need monorepo build/watch support are declared separately in `workspace-apps.json`; this is a development convenience, not runtime selection. The two lists may match while apps live in this monorepo, but installed external apps only need to appear in `bundled-apps.json`. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. Metadata includes manifest fields, client/server registration metadata, and app capabilities such as legacy service keys needed during the transition. `src/bundledApps/config.ts` validates the selection data, and `src/bundledApps/generatedAppCatalog.ts` is the generated installed-app catalog that mirrors selected package metadata and imports selected client/server registrations. Handwritten client and server registries derive their ordered app lists from that catalog while keeping runtime behavior environment-specific.
 
+Hosts may select installed apps that the current repo does not build. In that shape, `bundled-apps.json` names the installed runtime package and `workspace-apps.json` can be empty; root package build/watch helpers operate only on `workspace-apps.json`, while catalog generation operates only on installed packages named by `bundled-apps.json`.
+
 Platform contracts are split by environment inside `packages/platform/src`:
 
 - `appContract.ts`: neutral app metadata such as `AppManifest` and `AppPackageDescriptor`.

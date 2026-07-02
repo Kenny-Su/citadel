@@ -1,10 +1,15 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const configPath = join(rootDir, 'workspace-apps.json');
+const defaultRootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = process.env.CITADEL_WORKSPACE_ROOT
+  ? resolve(process.env.CITADEL_WORKSPACE_ROOT)
+  : defaultRootDir;
+const configPath = process.env.CITADEL_WORKSPACE_APPS_CONFIG
+  ? resolve(process.env.CITADEL_WORKSPACE_APPS_CONFIG)
+  : join(rootDir, 'workspace-apps.json');
 const command = process.argv[2];
 
 function readWorkspaceAppsConfig() {
