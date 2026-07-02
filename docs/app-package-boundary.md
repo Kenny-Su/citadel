@@ -10,7 +10,7 @@ Each bundled app exposes three environment-specific surfaces:
 - `packages/apps/<app>/src/client.tsx`: browser client registration, `ClientAppModule`, and view wiring.
 - `packages/apps/<app>/src/serverEntry.ts`: server registration, bundle, repository resolver, and server-only exports.
 
-Bundled app order is declared as installed package names in `bundled-apps.json`. Local app packages that need monorepo build/watch support are declared separately in `workspace-apps.json`; this is a development convenience, not runtime selection. The two lists may match while apps live in this monorepo, but installed external apps only need to appear in `bundled-apps.json`. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. Metadata includes manifest fields, client/server registration metadata, and app capabilities such as legacy service keys needed during the transition. `src/bundledApps/config.ts` validates the selection data, and `src/bundledApps/generatedAppCatalog.ts` is the generated installed-app catalog that mirrors selected package metadata and imports selected client/server registrations. Handwritten client and server registries derive their ordered app lists from that catalog while keeping runtime behavior environment-specific.
+Bundled app order is declared as installed package names in `bundled-apps.json`. Local app packages that need monorepo build/watch support are declared separately in `workspace-apps.json`; this is a development convenience, not runtime selection. The two lists may match while apps live in this monorepo, but installed external apps only need to appear in `bundled-apps.json`. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. Metadata includes manifest fields, client/server registration metadata, and app capabilities such as legacy service keys needed during the transition. `src/bundledApps/config.ts` validates generator input, and `src/bundledApps/generatedAppCatalog.ts` is the generated installed-app catalog that mirrors selected package metadata and imports selected client/server registrations. Runtime app definitions, client registries, and server registries derive their ordered app lists from that generated catalog while keeping behavior environment-specific.
 
 Hosts may select installed apps that the current repo does not build. In that shape, `bundled-apps.json` names the installed runtime package and `workspace-apps.json` can be empty; root package build/watch helpers operate only on `workspace-apps.json`, while catalog generation operates only on installed packages named by `bundled-apps.json`.
 
@@ -48,7 +48,7 @@ Workspace packages exist under `packages/` as the current local development shap
 - Local development prebuilds local workspace app artifacts once, then runs configured workspace app build watchers alongside the platform watcher, server, and Vite client so local `dist/` exports stay fresh during edits.
 
 Shared platform payloads and SQLite persistence are platform-owned under `packages/platform/src`.
-All bundled apps are source-owning workspace packages: their implementations live under `packages/apps/<app>/src`.
+The currently bundled first-party apps are still source-owning workspace packages: their implementations live under `packages/apps/<app>/src`.
 
 Shared server app services stay platform-only in `@citadel/platform/server-app`. App-specific server options, such as repository injection or chat rate limits, belong to each app server entrypoint and its app-owned server registration.
 
@@ -87,10 +87,11 @@ Package exports map each public surface to built JavaScript and declarations, fo
 - App `package.json` files declare Citadel metadata, including manifest data, capability metadata, and client/server registration subpaths and export names.
 - App capability metadata is declarative host compatibility data. `capabilities.legacyServices` names legacy service keys that the app can consume while old host adapters still exist; apps without legacy service needs declare an empty list.
 - App package artifacts expose runtime code through package `exports` that point at built `dist` JavaScript and declaration files.
-- The neutral bundled app config validates the JSON selection data.
-- `src/bundledApps/generatedAppCatalog.ts` is generated from app package manifest metadata and is the only static host bridge to configured app client/server registration imports.
+- The neutral bundled app config validates the JSON selection data for generation.
+- `src/bundledApps/generatedAppCatalog.ts` is generated from app package manifest metadata and is the only static host bridge to configured app descriptors and client/server registration imports.
+- Runtime bundled app definitions derive from `generatedAppCatalog.ts`, not from `bundled-apps.json`.
 - Installed/generated catalog data is the host source of truth for known app ids; platform app-id validation is syntax-only.
-- The handwritten bundled app resolver owns validation and imports the generated descriptor map from the generated catalog.
+- The handwritten bundled app resolver validates configured package names against the generated descriptor map when parser/resolver behavior is tested.
 - The client registry consumes generated client registrations plus neutral shared types.
 - The server registry consumes generated server registrations and calls app-owned server service adapters through that registration contract.
 - Neutral app indexes do not import client modules, server bundles, repositories, repository resolvers, or implementation factories.

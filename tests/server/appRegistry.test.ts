@@ -12,13 +12,15 @@ import {
 } from '../../src/bundledApps/serverRegistry.js';
 import {
   bundledAppDefinitions,
-  bundledAppIds,
+  bundledAppIds
+} from '../../src/bundledApps/catalog.js';
+import {
   bundledAppsConfig,
   bundledAppPackageNames,
-  parseBundledAppsConfig,
-  resolveBundledAppDefinitions,
-} from '../../src/bundledApps/catalog.js';
+  parseBundledAppsConfig
+} from '../../src/bundledApps/config.js';
 import { bundledInstalledApps, bundledServerRegistrationByPackageName } from '../../src/bundledApps/generatedAppCatalog.js';
+import { resolveBundledAppDefinitions } from '../../src/bundledApps/resolver.js';
 import { openCitadelDatabase, type CitadelDatabase } from '@citadel/platform/persistence';
 import type { ServerAppContext } from '@citadel/platform/server-app';
 import {

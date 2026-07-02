@@ -1,11 +1,10 @@
 import type { AppId, AppManifest, AppPackageDescriptor } from '@citadel/platform/app';
-import { bundledAppPackageNames } from './config.js';
-import { resolveBundledAppDefinitions } from './resolver.js';
+import { bundledInstalledApps } from './generatedAppCatalog.js';
 
 export type BundledAppDefinition = AppPackageDescriptor;
 
 export const bundledAppDefinitions: BundledAppDefinition[] =
-  resolveBundledAppDefinitions(bundledAppPackageNames);
+  bundledInstalledApps.map((app) => app.descriptor);
 
 export const bundledAppIds: AppId[] = bundledAppDefinitions.map((definition) => definition.appId);
 
