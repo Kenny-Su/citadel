@@ -621,6 +621,10 @@ describe('app package import boundaries', () => {
     expect(rootPackage.scripts['build:packages']).toBe('npm run build:platform && npm run build:workspace-apps');
     expect(rootPackage.scripts['build:platform']).toBe('npm run build -w @citadel/platform');
     expect(rootPackage.scripts['build:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs build');
+    expect(rootPackage.scripts['pack:workspace-app']).toBe('node scripts/pack-workspace-app.mjs');
+    expect(rootPackage.scripts['pack:app-snake']).toBe(
+      'node scripts/pack-workspace-app.mjs @citadel/app-snake'
+    );
     expect(rootPackage.scripts['clean:packages']).toBe(
       'npm run clean -w @citadel/platform && npm run clean:workspace-apps'
     );
@@ -748,8 +752,16 @@ describe('app package import boundaries', () => {
   it('builds package artifacts without making dist the source of truth', () => {
     const gitignore = source('.gitignore');
     const packageBuildBase = jsonSource<PackageTsconfig>('tsconfig.package-build-base.json');
+    const packWorkspaceApp = source('scripts/pack-workspace-app.mjs');
 
     expect(gitignore).toContain('dist/');
+    expect(gitignore).toContain('.citadel/');
+    expect(packWorkspaceApp).toContain('.citadel/app-packs');
+    expect(packWorkspaceApp).toContain('.citadel/npm-cache');
+    expect(packWorkspaceApp).toContain("'pack'");
+    expect(packWorkspaceApp).toContain("'--pack-destination'");
+    expect(packWorkspaceApp).toContain("['run', 'build', '-w', '@citadel/platform']");
+    expect(packWorkspaceApp).toContain("['run', 'build', '-w', packageName]");
     expect(packageBuildBase.extends).toBe('./tsconfig.package-base.json');
     expect(packageBuildBase.compilerOptions).toMatchObject({
       declaration: true,

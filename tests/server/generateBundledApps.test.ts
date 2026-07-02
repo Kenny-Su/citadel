@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
@@ -123,31 +123,54 @@ type PackResult = {
   files: PackFile[];
 };
 
+type PackedWorkspaceAppResult = {
+  filename: string;
+  tarballPath: string;
+  files: string[];
+};
+
 function runNpm(args: string[], options: { cacheDir: string }) {
   return execFileSync('npm', args, {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      npm_config_cache: options.cacheDir
+      npm_config_cache: options.cacheDir,
+      CITADEL_PACK_NPM_CACHE: options.cacheDir
     },
     encoding: 'utf8'
   });
 }
 
-function packSnake(options: { cacheDir: string; destinationDir: string }) {
-  const packOutput = runNpm([
-    'pack',
-    '--json',
-    '--pack-destination',
+function packSnake(options: { cacheDir: string; destinationDir: string; skipBuild?: boolean }) {
+  const args = [
+    'scripts/pack-workspace-app.mjs',
+    '@citadel/app-snake',
+    '--destination',
     options.destinationDir,
-    '-w',
-    '@citadel/app-snake'
-  ], { cacheDir: options.cacheDir });
-  const [packResult] = JSON.parse(packOutput) as PackResult[];
+    '--json'
+  ];
+
+  if (options.skipBuild ?? true) {
+    args.push('--skip-build');
+  }
+
+  const packOutput = execFileSync(process.execPath, args, {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      npm_config_cache: options.cacheDir,
+      CITADEL_PACK_NPM_CACHE: options.cacheDir
+    },
+    encoding: 'utf8'
+  });
+  const packedApp = JSON.parse(packOutput) as PackedWorkspaceAppResult;
 
   return {
-    packResult,
-    tarballPath: join(options.destinationDir, packResult.filename)
+    packResult: {
+      filename: packedApp.filename,
+      files: packedApp.files.map((path) => ({ path }))
+    } satisfies PackResult,
+    tarballPath: packedApp.tarballPath
   };
 }
 
@@ -350,11 +373,14 @@ describe('bundled app generator package resolution', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
     const cacheDir = join(tempDir, 'npm-cache');
 
-    runNpm(['run', 'build', '-w', '@citadel/app-snake'], { cacheDir });
-    const packOutput = runNpm(['pack', '--dry-run', '--json', '-w', '@citadel/app-snake'], { cacheDir });
-    const [packResult] = JSON.parse(packOutput) as PackResult[];
+    const { packResult, tarballPath } = packSnake({
+      cacheDir,
+      destinationDir: join(tempDir, 'packs'),
+      skipBuild: false
+    });
     const packedFiles = packResult.files.map((file) => file.path).sort();
 
+    expect(existsSync(tarballPath)).toBe(true);
     expect(packedFiles).toContain('package.json');
     expect(packedFiles).toContain('dist/index.js');
     expect(packedFiles).toContain('dist/index.d.ts');

@@ -22,6 +22,7 @@ npm run test:production
 
 `npm run test:production` builds the client and checks that the production server serves `/health`, app routes such as `/apps/chat/spaces/general`, and legacy chat links such as `/rooms/general`.
 Generated root and package `dist/` directories are build output and are not committed.
+`npm run pack:app-snake` prepares the Snake pilot as an ignored packed npm artifact under `.citadel/app-packs` for external-app install checks.
 
 ## Production Run
 
