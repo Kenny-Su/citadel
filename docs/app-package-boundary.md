@@ -14,6 +14,8 @@ Bundled app order is declared as installed package names in `bundled-apps.json`.
 
 Hosts may select installed apps that the current repo does not build. In that shape, `bundled-apps.json` names the installed runtime package and `workspace-apps.json` can be empty; root package build/watch helpers operate only on `workspace-apps.json`, while catalog generation operates only on installed packages named by `bundled-apps.json`.
 
+To add an external app to a host, install the app package into `node_modules`, add its package name to `bundled-apps.json`, leave it out of `workspace-apps.json`, and run `npm run generate:bundled-apps`. If the package is not installed, catalog generation fails against the expected `node_modules/<package>/package.json` path instead of looking for workspace source.
+
 Platform contracts are split by environment inside `packages/platform/src`:
 
 - `appContract.ts`: neutral app metadata such as `AppManifest` and `AppPackageDescriptor`.

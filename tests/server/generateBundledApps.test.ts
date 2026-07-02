@@ -272,12 +272,22 @@ describe('bundled app generator package resolution', () => {
     expect(() => resolveAppPackages({
       packages: ['@example/app-missing']
     }, { rootDir: tempDir })).toThrow(
-      'Bundled app package @example/app-missing is not installed at node_modules/@example/app-missing/package.json'
+      'Bundled app package @example/app-missing is not installed at node_modules/@example/app-missing/package.json. Install the package or remove it from bundled-apps.json.'
     );
 
     for (const packageName of ['', '../app', '@scope/../app', '/tmp/app', 'app/extra', '@scope', '@scope/app/extra']) {
       expect(() => validatePackageName(packageName)).toThrow();
     }
+  });
+
+  it('fails clearly when an external-only bundled app is not installed', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+
+    writeFileSync(join(tempDir, 'workspace-apps.json'), JSON.stringify({ packages: [] }, null, 2));
+
+    await expect(runGeneratorForPackages(tempDir, ['@citadel/app-missing'])).rejects.toThrow(
+      'Bundled app package @citadel/app-missing is not installed at node_modules/@citadel/app-missing/package.json. Install the package or remove it from bundled-apps.json.'
+    );
   });
 
   it('rejects invalid citadel metadata and duplicate app ids', () => {

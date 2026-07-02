@@ -74,7 +74,9 @@ export function readInstalledPackageManifest(packageName, options = {}) {
   const packageJsonPath = resolveInstalledPackageJsonPath(packageName, options);
 
   if (!existsSync(packageJsonPath)) {
-    throw new Error(`Bundled app package ${packageName} is not installed at ${relative(options.rootDir ?? rootDir, packageJsonPath)}`);
+    throw new Error(
+      `Bundled app package ${packageName} is not installed at ${relative(options.rootDir ?? rootDir, packageJsonPath)}. Install the package or remove it from bundled-apps.json.`
+    );
   }
 
   return readJson(packageJsonPath);

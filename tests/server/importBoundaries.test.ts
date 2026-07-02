@@ -713,6 +713,8 @@ describe('app package import boundaries', () => {
     expect(generator).not.toContain('rootPackagePath');
     expect(generator).not.toContain('readWorkspacePackageManifests');
     expect(generator).not.toContain('root workspaces');
+    expect(generator).toContain('is not installed at');
+    expect(generator).toContain('node_modules');
     expect(workspaceRunner).toContain('workspace-apps.json');
     expect(workspaceRunner).not.toContain('bundled-apps.json');
     expect(workspaceRunner).not.toContain('generatedAppCatalog');
