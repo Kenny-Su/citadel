@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error The generator is a Node ESM script exercised directly by Vitest.
 import { generateInstalledAppCatalog, resolveAppPackages, resolveInstalledPackageJsonPath, runGenerator, validatePackageName } from '../../scripts/generate-bundled-apps.mjs';
@@ -172,6 +173,21 @@ function linkHostDependency(hostDir: string, packageName: string) {
   symlinkSync(join(process.cwd(), 'node_modules', ...packageName.split('/')), dependencyPath, 'dir');
 }
 
+function transpileGeneratedCatalog(hostDir: string) {
+  const sourcePath = join(hostDir, 'src/bundledApps/generatedAppCatalog.ts');
+  const outputPath = join(hostDir, 'src/bundledApps/generatedAppCatalog.mjs');
+  const output = transpileModule(readFileSync(sourcePath, 'utf8'), {
+    compilerOptions: {
+      module: ModuleKind.ES2022,
+      target: ScriptTarget.ES2022
+    }
+  });
+
+  writeFileSync(outputPath, output.outputText);
+
+  return outputPath;
+}
+
 describe('bundled app generator package resolution', () => {
   let tempDir: string | undefined;
 
@@ -338,6 +354,90 @@ describe('bundled app generator package resolution', () => {
     expect(generatedCatalog).toContain(
       "import { snakeServerRegistration as bundledServerRegistration0 } from '@citadel/app-snake/server';"
     );
+  });
+
+  it('boots a snake-only host catalog from a packed external dependency', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
+    const cacheDir = join(tempDir, 'npm-cache');
+    const { hostDir } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
+    const probePath = join(hostDir, 'probe.ts');
+    linkHostDependency(hostDir, '@citadel/platform');
+    linkHostDependency(hostDir, 'react');
+
+    await runGeneratorForPackages(hostDir, ['@citadel/app-snake']);
+    transpileGeneratedCatalog(hostDir);
+    writeFileSync(probePath, [
+      "import { createPlatformServer } from '@citadel/platform/server';",
+      "import { bundledInstalledApps, bundledAppDescriptorByAppId, bundledClientRegistrationByAppId, bundledServerRegistrationByAppId } from './src/bundledApps/generatedAppCatalog.mjs';",
+      '',
+      'const [installedApp] = bundledInstalledApps;',
+      'const serverModule = installedApp.serverRegistration.createServerApp({',
+      '  database: { database: {} }',
+      '});',
+      'const platform = createPlatformServer({',
+      '  apps: [serverModule],',
+      '  appManifests: [installedApp.descriptor.manifest]',
+      '});',
+      'const initialState = serverModule.getInitialState({',
+      "  appId: 'snake',",
+      "  spaceId: 'arena',",
+      '  participants: [],',
+      '  emitToSpace() {},',
+      '  emitToParticipant() {},',
+      '  emitSpaceState() {},',
+      '  getAppState() { return undefined; },',
+      '  setAppState() {},',
+      '  clearAppState() {}',
+      '});',
+      'console.log(JSON.stringify({',
+      '  installedCount: bundledInstalledApps.length,',
+      '  descriptorAppId: installedApp.descriptor.appId,',
+      '  descriptorPackageName: installedApp.descriptor.packageName,',
+      '  descriptorByAppId: bundledAppDescriptorByAppId.snake?.packageName,',
+      '  clientRegistrationAppId: bundledClientRegistrationByAppId.snake?.appId,',
+      '  serverRegistrationAppId: bundledServerRegistrationByAppId.snake?.appId,',
+      '  serverModuleAppId: serverModule.appId,',
+      '  platformAppIds: [...platform.apps.keys()],',
+      '  initialState',
+      '}));',
+      'platform.io.close();',
+      'platform.httpServer.close();'
+    ].join('\n'));
+
+    const probe = JSON.parse(execFileSync(process.execPath, [probePath], {
+      cwd: hostDir,
+      encoding: 'utf8'
+    })) as {
+      installedCount: number;
+      descriptorAppId: string;
+      descriptorPackageName: string;
+      descriptorByAppId: string;
+      clientRegistrationAppId: string;
+      serverRegistrationAppId: string;
+      serverModuleAppId: string;
+      platformAppIds: string[];
+      initialState: {
+        width: number;
+        height: number;
+        snakes: unknown[];
+      };
+    };
+
+    expect(probe).toMatchObject({
+      installedCount: 1,
+      descriptorAppId: 'snake',
+      descriptorPackageName: '@citadel/app-snake',
+      descriptorByAppId: '@citadel/app-snake',
+      clientRegistrationAppId: 'snake',
+      serverRegistrationAppId: 'snake',
+      serverModuleAppId: 'snake',
+      platformAppIds: ['snake'],
+      initialState: {
+        width: 20,
+        height: 16,
+        snakes: []
+      }
+    });
   });
 
   it('rejects installed packages whose client registration export is missing', async () => {

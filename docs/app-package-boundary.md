@@ -40,6 +40,7 @@ Workspace packages exist under `packages/` as the current local development shap
 - Each workspace package has a package-local no-emit TypeScript check. These checks prove package isolation without producing JavaScript or declarations.
 - Each workspace package also has a local package build that emits JavaScript and declarations into its ignored `dist/` directory. Package `exports` point at those built artifacts, and the host consumes packages through workspace package resolution rather than source aliases.
 - App package artifacts are built-package artifacts: npm pack allowlists `dist` plus `package.json`, so source files and TypeScript build configs are development inputs rather than external dependency contents.
+- Snake is the current external-app proof: tests pack it, install the tarball into a temp host `node_modules`, generate a Snake-only installed-app catalog, and boot the host/server path from that packed dependency shape.
 - Local development prebuilds local workspace app artifacts once, then runs configured workspace app build watchers alongside the platform watcher, server, and Vite client so local `dist/` exports stay fresh during edits.
 
 Shared platform payloads and SQLite persistence are platform-owned under `packages/platform/src`.
