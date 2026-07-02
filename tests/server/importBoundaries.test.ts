@@ -574,7 +574,7 @@ describe('app package import boundaries', () => {
     expect(viteConfig).not.toContain('packages/platform/');
   });
 
-  it('declares installed app dependencies and local workspace package exports', () => {
+  it('declares installed local app artifacts and local workspace package exports', () => {
     const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
     const localExternalApps = jsonSource<LocalExternalAppsJson>('local-external-apps.json');
     const rootPackage = jsonSource<RootPackageJson>('package.json');
@@ -595,9 +595,9 @@ describe('app package import boundaries', () => {
       const appPackage = installedPackageJson(packageName);
 
       expect(appPackage.name).toBe(packageName);
-      expect(rootPackage.dependencies[packageName]).toBeDefined();
-      expect(packageLock.packages[''].dependencies?.[packageName]).toBe(rootPackage.dependencies[packageName]);
-      expect(packageLock.packages[`node_modules/${packageName}`]).toBeDefined();
+      expect(rootPackage.dependencies[packageName]).toBeUndefined();
+      expect(packageLock.packages[''].dependencies?.[packageName]).toBeUndefined();
+      expect(packageLock.packages[`node_modules/${packageName}`]).toBeUndefined();
     }
     for (const { packageName, sourcePath } of localExternalApps.packages) {
       const app = firstPartyWorkspaceAppForPackageName(packageName);
@@ -605,11 +605,9 @@ describe('app package import boundaries', () => {
       expect(bundledPackageNames.has(packageName)).toBe(true);
       expect(sourcePath).toBe(app.packagePath);
       expect(rootPackage.workspaces).not.toContain(app.packagePath);
-      expect(rootPackage.dependencies[packageName]).toBe(`file:${app.packagePath}`);
-      expect(packageLock.packages[`node_modules/${packageName}`]).toMatchObject({
-        link: true,
-        resolved: app.packagePath
-      });
+      expect(rootPackage.dependencies[packageName]).toBeUndefined();
+      expect(packageLock.packages[`node_modules/${packageName}`]).toBeUndefined();
+      expect(packageLock.packages[sourcePath]).toBeUndefined();
       expect(lstatSync(join(process.cwd(), 'node_modules', ...packageName.split('/'))).isSymbolicLink()).toBe(false);
       expect(readdirSync(join(process.cwd(), 'node_modules', ...packageName.split('/'))).sort()).toEqual([
         'dist',

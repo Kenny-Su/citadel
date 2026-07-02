@@ -11,6 +11,7 @@ npm run dev
 
 The Vite client runs at `http://localhost:5173` and the Socket.IO/Express backend runs at `http://localhost:3001`.
 `npm run dev` builds package artifacts once, installs local app pilots from packed artifacts, then watches the Platform package while the server and client run.
+First-party app sources are listed in `local-external-apps.json`; they are not root workspaces or root `file:` dependencies.
 
 ## Test And Build
 

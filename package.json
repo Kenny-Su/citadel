@@ -37,9 +37,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@citadel/app-chat": "file:packages/apps/chat",
-    "@citadel/app-chess": "file:packages/apps/chess",
-    "@citadel/app-snake": "file:packages/apps/snake",
     "@citadel/platform": "0.1.0",
     "@vitejs/plugin-react": "^6.0.2",
     "chess.js": "^1.4.0",
