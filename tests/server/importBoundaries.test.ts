@@ -2,39 +2,61 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const appIds = ['chat', 'chess', 'snake'] as const;
-const appShimFilesById = {
-  chat: [
-    'ChatView.tsx',
-    'client.tsx',
-    'index.ts',
-    'manifest.ts',
-    'messageStore.ts',
-    'server.ts',
-    'serverEntry.ts',
-    'shared.ts',
-    'validation.ts'
-  ],
-  chess: [
-    'ChessView.tsx',
-    'client.tsx',
-    'index.ts',
-    'manifest.ts',
-    'repository.ts',
-    'server.ts',
-    'serverEntry.ts',
-    'shared.ts'
-  ],
-  snake: [
-    'SnakeView.tsx',
-    'client.tsx',
-    'index.ts',
-    'manifest.ts',
-    'server.ts',
-    'serverEntry.ts',
-    'shared.ts'
-  ]
-} as const;
+const firstPartyWorkspaceApps = [
+  {
+    appId: 'chat',
+    packageName: '@citadel/app-chat',
+    packagePath: 'packages/apps/chat',
+    sourcePath: 'packages/apps/chat/src',
+    viewFile: 'ChatView.tsx',
+    shimFiles: [
+      'ChatView.tsx',
+      'client.tsx',
+      'index.ts',
+      'manifest.ts',
+      'messageStore.ts',
+      'server.ts',
+      'serverEntry.ts',
+      'shared.ts',
+      'validation.ts'
+    ]
+  },
+  {
+    appId: 'chess',
+    packageName: '@citadel/app-chess',
+    packagePath: 'packages/apps/chess',
+    sourcePath: 'packages/apps/chess/src',
+    viewFile: 'ChessView.tsx',
+    shimFiles: [
+      'ChessView.tsx',
+      'client.tsx',
+      'index.ts',
+      'manifest.ts',
+      'repository.ts',
+      'server.ts',
+      'serverEntry.ts',
+      'shared.ts'
+    ]
+  },
+  {
+    appId: 'snake',
+    packageName: '@citadel/app-snake',
+    packagePath: 'packages/apps/snake',
+    sourcePath: 'packages/apps/snake/src',
+    viewFile: 'SnakeView.tsx',
+    shimFiles: [
+      'SnakeView.tsx',
+      'client.tsx',
+      'index.ts',
+      'manifest.ts',
+      'server.ts',
+      'serverEntry.ts',
+      'shared.ts'
+    ]
+  }
+] as const;
+const firstPartyAppIds = firstPartyWorkspaceApps.map((app) => app.appId);
+type FirstPartyAppId = (typeof firstPartyWorkspaceApps)[number]['appId'];
 const platformEntrypointNames = ['app', 'client', 'persistence', 'server', 'server-app', 'validation'] as const;
 const platformSourceModuleNames = [
   'app',
@@ -197,13 +219,17 @@ const expectedCitadelMetadataByAppId = {
       registrationExport: 'snakeServerRegistration'
     }
   }
-} as const satisfies Record<(typeof appIds)[number], CitadelPackageMetadata>;
+} as const satisfies Record<FirstPartyAppId, CitadelPackageMetadata>;
 
-const packagePaths = [
-  'packages/platform',
+const firstPartyAppPackagePaths = [
   'packages/apps/chat',
   'packages/apps/chess',
   'packages/apps/snake'
+] as const;
+
+const workspacePackagePaths = [
+  'packages/platform',
+  ...firstPartyAppPackagePaths
 ] as const;
 
 const publicRuntimeExports = {
@@ -257,8 +283,36 @@ const publicRuntimeExports = {
 const forbiddenPackageExportPattern =
   /(?:^\.(?:\/src|\/dist\/src)(?:\/|$)|(?:View|repository|messageStore|serverEntry|manifest|shared)\.(?:js|ts|tsx)$|(?:^|\/)(?:ChatView|ChessView|SnakeView|repository|messageStore|serverEntry|manifest|shared)(?:$|\/))/;
 
-function appImplementationPath(appId: (typeof appIds)[number], fileName: string) {
-  return `packages/apps/${appId}/src/${fileName}`;
+function firstPartyApp(appId: FirstPartyAppId) {
+  const app = firstPartyWorkspaceApps.find((candidate) => candidate.appId === appId);
+
+  if (!app) {
+    throw new Error(`Unknown first-party workspace app: ${appId}`);
+  }
+
+  return app;
+}
+
+function appImplementationPath(appId: FirstPartyAppId, fileName: string) {
+  return `${firstPartyApp(appId).sourcePath}/${fileName}`;
+}
+
+function installedPackageJsonPath(packageName: string) {
+  return `node_modules/${packageName}/package.json`;
+}
+
+function installedPackageJson(packageName: string) {
+  return jsonSource<PackageJson>(installedPackageJsonPath(packageName));
+}
+
+function installedCitadelMetadata(packageName: string) {
+  const metadata = installedPackageJson(packageName).citadel;
+
+  if (!metadata) {
+    throw new Error(`Installed app package ${packageName} must declare citadel metadata`);
+  }
+
+  return metadata;
 }
 
 function exists(path: string) {
@@ -325,7 +379,7 @@ describe('app package import boundaries', () => {
   });
 
   it('keeps neutral app indexes limited to manifests and shared types', () => {
-    for (const appId of appIds) {
+    for (const appId of firstPartyAppIds) {
       const indexSource = source(appImplementationPath(appId, 'index.ts'));
 
       expect(indexSource).toContain(`export { ${appId}Manifest } from './manifest.js'`);
@@ -340,6 +394,7 @@ describe('app package import boundaries', () => {
   });
 
   it('keeps client registry wired to real app packages and platform client contracts', () => {
+    const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
     const registry = source('src/client/appRegistry.tsx');
     const generatedCatalog = source('src/bundledApps/generatedAppCatalog.ts');
 
@@ -347,13 +402,16 @@ describe('app package import boundaries', () => {
     expect(registry).toContain("from '../bundledApps/generatedAppCatalog'");
     expect(registry).toContain("from '@citadel/platform/app'");
     expect(registry).toContain("from '@citadel/platform/client'");
-    for (const appId of appIds) {
-      expect(generatedCatalog).toContain(`from '@citadel/app-${appId}/client'`);
-      expect(generatedCatalog).toContain(`${appId}ClientRegistration`);
-      expect(registry).not.toContain(`@citadel/app-${appId}/client`);
-      expect(registry).not.toContain(`${appId}ClientRegistration`);
-      expect(registry).not.toContain(`@citadel/app-${appId}/server`);
-      expect(registry).not.toContain(`@citadel/apps/${appId}`);
+    for (const packageName of bundledApps.packages) {
+      const metadata = installedCitadelMetadata(packageName);
+      const clientImportPath = `${packageName}/${metadata.client.subpath.slice(2)}`;
+
+      expect(generatedCatalog).toContain(`from '${clientImportPath}'`);
+      expect(generatedCatalog).toContain(metadata.client.registrationExport);
+      expect(registry).not.toContain(`${packageName}/client`);
+      expect(registry).not.toContain(metadata.client.registrationExport);
+      expect(registry).not.toContain(`${packageName}/server`);
+      expect(registry).not.toContain(`@citadel/apps/${metadata.appId}`);
     }
     expect(registry).not.toMatch(/chatClientApp|chessClientApp|snakeClientApp/);
     expect(registry).not.toMatch(/'chat'|'chess'|'snake'/);
@@ -363,19 +421,23 @@ describe('app package import boundaries', () => {
   });
 
   it('keeps bundled server registry wired to real app server packages', () => {
+    const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
     const registry = source('src/bundledApps/serverRegistry.ts');
     const generatedCatalog = source('src/bundledApps/generatedAppCatalog.ts');
 
     expect(registry).toContain("from './catalog.js'");
     expect(registry).toContain("from '@citadel/platform/server-app'");
     expect(registry).toContain("from './generatedAppCatalog.js'");
-    for (const appId of appIds) {
-      expect(generatedCatalog).toContain(`from '@citadel/app-${appId}/server'`);
-      expect(generatedCatalog).toContain(`${appId}ServerRegistration`);
-      expect(registry).not.toContain(`${appId}ServerRegistration`);
-      expect(registry).not.toContain(`@citadel/app-${appId}/client`);
-      expect(registry).not.toContain(`@citadel/app-${appId}/server`);
-      expect(registry).not.toContain(`@citadel/apps/${appId}`);
+    for (const packageName of bundledApps.packages) {
+      const metadata = installedCitadelMetadata(packageName);
+      const serverImportPath = `${packageName}/${metadata.server.subpath.slice(2)}`;
+
+      expect(generatedCatalog).toContain(`from '${serverImportPath}'`);
+      expect(generatedCatalog).toContain(metadata.server.registrationExport);
+      expect(registry).not.toContain(metadata.server.registrationExport);
+      expect(registry).not.toContain(`${packageName}/client`);
+      expect(registry).not.toContain(`${packageName}/server`);
+      expect(registry).not.toContain(`@citadel/apps/${metadata.appId}`);
     }
     expect(registry).not.toMatch(
       /\.\/(?:chat|chess|snake)\/(?:client|server|manifest|shared|repository|messageStore|validation|ChatView|ChessView|SnakeView)\.js/
@@ -407,9 +469,9 @@ describe('app package import boundaries', () => {
     const forbiddenClientImports =
       /(?:serverEntry|serverAppContract|messageStore|repository|node:fs|node:path|node:sqlite|from ['"]\.\/server(?:\.js)?['"])/;
 
-    for (const appId of appIds) {
+    for (const appId of firstPartyAppIds) {
       expect(source(appImplementationPath(appId, 'client.tsx'))).not.toMatch(forbiddenClientImports);
-      expect(source(appImplementationPath(appId, `${appId[0].toUpperCase()}${appId.slice(1)}View.tsx`))).not.toMatch(
+      expect(source(appImplementationPath(appId, firstPartyApp(appId).viewFile))).not.toMatch(
         forbiddenClientImports
       );
     }
@@ -418,7 +480,7 @@ describe('app package import boundaries', () => {
   it('keeps app server entrypoints away from client-only surfaces', () => {
     const forbiddenServerImports = /(?:\.\/client|clientAppContract|ChatView|ChessView|SnakeView|react)/;
 
-    for (const appId of appIds) {
+    for (const appId of firstPartyAppIds) {
       expect(source(appImplementationPath(appId, 'serverEntry.ts'))).not.toMatch(forbiddenServerImports);
     }
   });
@@ -442,10 +504,10 @@ describe('app package import boundaries', () => {
     const forbiddenDeepAppImports =
       /\.\.\/\.\.\/(?:shared\/platform|platform\/(?:app|client|serverApp|persistence|appContract|clientAppContract|serverAppContract|validation)|persistence\/sqlite)\.js?/;
 
-    for (const appId of appIds) {
+    for (const appId of firstPartyAppIds) {
       const manifest = source(appImplementationPath(appId, 'manifest.ts'));
       const client = source(appImplementationPath(appId, 'client.tsx'));
-      const view = source(appImplementationPath(appId, `${appId[0].toUpperCase()}${appId.slice(1)}View.tsx`));
+      const view = source(appImplementationPath(appId, firstPartyApp(appId).viewFile));
       const server = source(appImplementationPath(appId, 'server.ts'));
       const serverEntry = source(appImplementationPath(appId, 'serverEntry.ts'));
 
@@ -487,8 +549,7 @@ describe('app package import boundaries', () => {
 
     expect(rootPackage.dependencies['@citadel/platform']).toBe(platformPackage.version);
     for (const packageName of bundledApps.packages) {
-      const appId = packageName.replace('@citadel/app-', '');
-      const appPackage = jsonSource<PackageJson>(`packages/apps/${appId}/package.json`);
+      const appPackage = installedPackageJson(packageName);
 
       expect(rootPackage.dependencies[packageName]).toBe(appPackage.version);
       expect(packageLock.packages[''].dependencies?.[packageName]).toBe(rootPackage.dependencies[packageName]);
@@ -532,7 +593,7 @@ describe('app package import boundaries', () => {
       'npm run clean -w @citadel/platform && npm run clean:workspace-apps'
     );
     expect(rootPackage.scripts['clean:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs clean');
-    expect(rootPackage.workspaces).toEqual([...packagePaths]);
+    expect(rootPackage.workspaces).toEqual([...workspacePackagePaths]);
     expect(platformPackage.name).toBe('@citadel/platform');
     expect(platformPackage.exports).toEqual({
       './app': { types: './dist/app.d.ts', import: './dist/app.js' },
@@ -551,13 +612,13 @@ describe('app package import boundaries', () => {
     expect(platformPackage.scripts.clean).toBe("node -e \"fs.rmSync('dist', { recursive: true, force: true })\"");
     expect(platformPackage.scripts.typecheck).toBe('tsc -p tsconfig.json --noEmit');
 
-    for (const appId of appIds) {
-      const appPackage = jsonSource<PackageJson>(`packages/apps/${appId}/package.json`);
+    for (const app of firstPartyWorkspaceApps) {
+      const appPackage = jsonSource<PackageJson>(`${app.packagePath}/package.json`);
 
-      expect(appPackage.name).toBe(`@citadel/app-${appId}`);
+      expect(appPackage.name).toBe(app.packageName);
       expect(appPackage.files).toEqual(['dist']);
       expect(appPackage.exports).toEqual(
-        appId === 'chat'
+        app.appId === 'chat'
           ? {
             '.': { types: './dist/index.d.ts', import: './dist/index.js' },
             './client': { types: './dist/client.d.ts', import: './dist/client.js' },
@@ -570,7 +631,7 @@ describe('app package import boundaries', () => {
             './server': { types: './dist/server.d.ts', import: './dist/server.js' }
           }
       );
-      expect(appPackage.citadel).toEqual(expectedCitadelMetadataByAppId[appId]);
+      expect(appPackage.citadel).toEqual(expectedCitadelMetadataByAppId[app.appId]);
       expect(Object.values(appPackage.exports).every((entry) => typeof entry !== 'string')).toBe(true);
       expect(Object.values(appPackage.exports).every((entry) => typeof entry !== 'string' && entry.import.startsWith('./dist/'))).toBe(true);
       expect(appPackage.scripts.build).toBe('tsc -p tsconfig.build.json');
@@ -584,16 +645,13 @@ describe('app package import boundaries', () => {
   });
 
   it('does not expose package subpaths for source, build, view, or implementation internals', () => {
-    const packageJsonPaths = [
-      'packages/platform/package.json',
-      'packages/apps/chat/package.json',
-      'packages/apps/chess/package.json',
-      'packages/apps/snake/package.json'
-    ] as const;
+    const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
+    const packageJsons = [
+      jsonSource<PackageJson>('packages/platform/package.json'),
+      ...bundledApps.packages.map((packageName) => installedPackageJson(packageName))
+    ];
 
-    for (const packageJsonPath of packageJsonPaths) {
-      const packageJson = jsonSource<PackageJson>(packageJsonPath);
-
+    for (const packageJson of packageJsons) {
       for (const { subpath, importTarget, typesTarget } of packageExportEntries(packageJson)) {
         expect(subpath).not.toMatch(forbiddenPackageExportPattern);
         expect(importTarget).not.toMatch(forbiddenPackageExportPattern);
@@ -601,10 +659,10 @@ describe('app package import boundaries', () => {
       }
 
       if (packageJson.name.startsWith('@citadel/app-')) {
-        for (const otherAppId of appIds) {
-          if (packageJson.name !== `@citadel/app-${otherAppId}`) {
-            expect(JSON.stringify(packageJson.exports)).not.toContain(`app-${otherAppId}`);
-            expect(JSON.stringify(packageJson.exports)).not.toContain(`/apps/${otherAppId}`);
+        for (const otherPackageName of bundledApps.packages) {
+          if (packageJson.name !== otherPackageName) {
+            expect(JSON.stringify(packageJson.exports)).not.toContain(otherPackageName);
+            expect(JSON.stringify(packageJson.exports)).not.toContain(`/apps/${installedCitadelMetadata(otherPackageName).appId}`);
           }
         }
       }
@@ -612,7 +670,7 @@ describe('app package import boundaries', () => {
   });
 
   it('loads only intentional public runtime values from built workspace package artifacts', async () => {
-    for (const packagePath of packagePaths) {
+    for (const packagePath of workspacePackagePaths) {
       expect(exists(`${packagePath}/dist`)).toBe(true);
     }
 
@@ -645,8 +703,8 @@ describe('app package import boundaries', () => {
     expect(platformConfig.include).toEqual(['*.ts', 'src/**/*.ts']);
     expect(platformConfig.include?.join(' ')).not.toMatch(/\.\.|tests|packages\//);
 
-    for (const appId of appIds) {
-      const appConfig = jsonSource<PackageTsconfig>(`packages/apps/${appId}/tsconfig.json`);
+    for (const app of firstPartyWorkspaceApps) {
+      const appConfig = jsonSource<PackageTsconfig>(`${app.packagePath}/tsconfig.json`);
 
       expect(appConfig.extends).toBe('../../../tsconfig.package-base.json');
       expect(appConfig.include).toEqual(['*.ts', 'src/**/*.ts', 'src/**/*.tsx']);
@@ -671,7 +729,7 @@ describe('app package import boundaries', () => {
     });
     expect(packageBuildBase.compilerOptions).not.toHaveProperty('outDir');
 
-    for (const packagePath of packagePaths) {
+    for (const packagePath of workspacePackagePaths) {
       const buildConfig = jsonSource<PackageTsconfig>(`${packagePath}/tsconfig.build.json`);
 
       expect(buildConfig.extends).toMatch(/tsconfig\.package-build-base\.json$/);
@@ -694,10 +752,10 @@ describe('app package import boundaries', () => {
     expect(source('packages/platform/server.ts').trim()).toBe("export * from './src/server.js';");
     expect(source('packages/platform/validation.ts').trim()).toBe("export * from './src/validation.js';");
 
-    for (const appId of appIds) {
-      expect(source(`packages/apps/${appId}/index.ts`).trim()).toBe("export * from './src/index.js';");
-      expect(source(`packages/apps/${appId}/client.ts`).trim()).toBe("export * from './src/client.js';");
-      expect(source(`packages/apps/${appId}/server.ts`).trim()).toBe("export * from './src/serverEntry.js';");
+    for (const app of firstPartyWorkspaceApps) {
+      expect(source(`${app.packagePath}/index.ts`).trim()).toBe("export * from './src/index.js';");
+      expect(source(`${app.packagePath}/client.ts`).trim()).toBe("export * from './src/client.js';");
+      expect(source(`${app.packagePath}/server.ts`).trim()).toBe("export * from './src/serverEntry.js';");
     }
     expect(source('packages/apps/chat/validation.ts').trim()).toBe("export * from './src/validation.js';");
   });
@@ -707,9 +765,9 @@ describe('app package import boundaries', () => {
       expect(exists(`src/platform/${moduleName}.ts`)).toBe(false);
     }
 
-    for (const appId of appIds) {
-      for (const fileName of appShimFilesById[appId]) {
-        expect(exists(`src/apps/${appId}/${fileName}`)).toBe(false);
+    for (const app of firstPartyWorkspaceApps) {
+      for (const fileName of app.shimFiles) {
+        expect(exists(`src/apps/${app.appId}/${fileName}`)).toBe(false);
       }
     }
 
@@ -757,39 +815,39 @@ describe('app package import boundaries', () => {
     expect(workspaceRunner).not.toContain('bundled-apps.json');
     expect(workspaceRunner).not.toContain('generatedAppCatalog');
 
-    for (const appId of appIds) {
-      const metadata = expectedCitadelMetadataByAppId[appId];
-      const clientImportPath = `@citadel/app-${appId}/${metadata.client.subpath.slice(2)}`;
-      const serverImportPath = `@citadel/app-${appId}/${metadata.server.subpath.slice(2)}`;
+    for (const packageName of bundledApps.packages) {
+      const metadata = installedCitadelMetadata(packageName);
+      const clientImportPath = `${packageName}/${metadata.client.subpath.slice(2)}`;
+      const serverImportPath = `${packageName}/${metadata.server.subpath.slice(2)}`;
 
-      expect(definitions).not.toContain(`from '@citadel/app-${appId}'`);
-      expect(definitions).not.toContain(`@citadel/app-${appId}/client`);
-      expect(definitions).not.toContain(`@citadel/app-${appId}/server`);
-      expect(generatedCatalog).toContain(`"@citadel/app-${appId}":`);
+      expect(definitions).not.toContain(`from '${packageName}'`);
+      expect(definitions).not.toContain(`${packageName}/client`);
+      expect(definitions).not.toContain(`${packageName}/server`);
+      expect(generatedCatalog).toContain(`"${packageName}":`);
       expect(generatedCatalog).toContain(`appId: "${metadata.appId}"`);
       expect(generatedCatalog).toContain(`label: "${metadata.label}"`);
       expect(generatedCatalog).toContain(`persistence: "${metadata.persistence}"`);
       expect(generatedCatalog).toContain(`legacyServices: ${JSON.stringify(metadata.capabilities.legacyServices)}`);
       expect(generatedCatalog).toContain(`registrationExport: "${metadata.client.registrationExport}"`);
       expect(generatedCatalog).toContain(`registrationExport: "${metadata.server.registrationExport}"`);
-      expect(generatedCatalog).not.toContain(`from '@citadel/app-${appId}'`);
+      expect(generatedCatalog).not.toContain(`from '${packageName}'`);
       expect(generatedCatalog).toContain(`from '${clientImportPath}'`);
       expect(generatedCatalog).toContain(metadata.client.registrationExport);
       expect(generatedCatalog).toContain(`from '${serverImportPath}'`);
       expect(generatedCatalog).toContain(metadata.server.registrationExport);
-      expect(resolver).not.toContain(`from '@citadel/app-${appId}'`);
-      expect(resolver).not.toContain(`@citadel/app-${appId}/client`);
-      expect(resolver).not.toContain(`@citadel/app-${appId}/server`);
-      expect(catalog).not.toContain(`from '@citadel/app-${appId}'`);
-      expect(catalog).not.toContain(`@citadel/apps/${appId}`);
-      expect(serverRegistry).not.toContain(`${appId}ServerRegistration`);
-      expect(serverRegistry).not.toContain(`@citadel/app-${appId}/client`);
-      expect(serverRegistry).not.toContain(`@citadel/app-${appId}/server`);
-      expect(serverRegistry).not.toContain(`@citadel/apps/${appId}`);
-      expect(clientRegistry).not.toContain(`from '@citadel/app-${appId}'`);
-      expect(clientRegistry).not.toContain(`from '@citadel/app-${appId}/client'`);
-      expect(clientRegistry).not.toContain(`${appId}ClientRegistration`);
-      expect(clientRegistry).not.toContain(`@citadel/app-${appId}/server`);
+      expect(resolver).not.toContain(`from '${packageName}'`);
+      expect(resolver).not.toContain(`${packageName}/client`);
+      expect(resolver).not.toContain(`${packageName}/server`);
+      expect(catalog).not.toContain(`from '${packageName}'`);
+      expect(catalog).not.toContain(`@citadel/apps/${metadata.appId}`);
+      expect(serverRegistry).not.toContain(metadata.server.registrationExport);
+      expect(serverRegistry).not.toContain(`${packageName}/client`);
+      expect(serverRegistry).not.toContain(`${packageName}/server`);
+      expect(serverRegistry).not.toContain(`@citadel/apps/${metadata.appId}`);
+      expect(clientRegistry).not.toContain(`from '${packageName}'`);
+      expect(clientRegistry).not.toContain(`from '${clientImportPath}'`);
+      expect(clientRegistry).not.toContain(metadata.client.registrationExport);
+      expect(clientRegistry).not.toContain(`${packageName}/server`);
     }
     expect(catalog).toContain("from './definitions.js'");
     expect(catalog).not.toContain("from './config.js'");

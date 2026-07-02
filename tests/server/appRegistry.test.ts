@@ -72,9 +72,9 @@ type CitadelPackageMetadata = {
   };
 };
 
-function readCitadelPackageMetadata(appId: 'chat' | 'chess' | 'snake') {
+function readInstalledCitadelPackageMetadata(packageName: string) {
   const packageJson = JSON.parse(
-    readFileSync(join(process.cwd(), `packages/apps/${appId}/package.json`), 'utf8')
+    readFileSync(join(process.cwd(), 'node_modules', ...packageName.split('/'), 'package.json'), 'utf8')
   ) as { name: string; citadel: CitadelPackageMetadata };
 
   return {
@@ -182,11 +182,9 @@ describe('bundled server app registry', () => {
   });
 
   it('exposes app manifests and server registrations from environment entrypoints', () => {
-    const packageMetadata = [
-      readCitadelPackageMetadata('chat'),
-      readCitadelPackageMetadata('chess'),
-      readCitadelPackageMetadata('snake')
-    ];
+    const packageMetadata = bundledInstalledApps.map((app) => (
+      readInstalledCitadelPackageMetadata(app.descriptor.packageName)
+    ));
 
     expect([publicChatManifest, publicChessManifest, publicSnakeManifest].map((manifest) => manifest.appId)).toEqual([
       'chat',

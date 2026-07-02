@@ -6,9 +6,11 @@ Citadel apps now own their implementation source in workspace package folders, w
 
 Each bundled app exposes three environment-specific surfaces:
 
-- `packages/apps/<app>/src/index.ts`: neutral package descriptor, manifest, and shared types only.
-- `packages/apps/<app>/src/client.tsx`: browser client registration, `ClientAppModule`, and view wiring.
-- `packages/apps/<app>/src/serverEntry.ts`: server registration, bundle, repository resolver, and server-only exports.
+- package root (`.`): neutral package descriptor, manifest, and shared types only.
+- `./client`: browser client registration, `ClientAppModule`, and view wiring.
+- `./server`: server registration, bundle, repository resolver, and server-only exports.
+
+In the current first-party workspace apps, those surfaces are backed by `packages/apps/<app>/src/index.ts`, `packages/apps/<app>/src/client.tsx`, and `packages/apps/<app>/src/serverEntry.ts`. External apps only need to provide the package exports and installed `package.json#citadel` metadata.
 
 Bundled app order is declared as installed package names in `bundled-apps.json`. Those selected packages should also be declared as host dependencies so a normal install creates the expected `node_modules/<package>/package.json` discovery surface. Local app packages that need monorepo build/watch support are declared separately in `workspace-apps.json`; this is a development convenience, not runtime selection. The two lists may match while apps live in this monorepo, but installed external apps only need to appear in `bundled-apps.json` and the host dependency manifest. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. Metadata includes manifest fields, client/server registration metadata, and app capabilities such as legacy service keys needed during the transition. `src/bundledApps/config.ts` validates generator input, and `src/bundledApps/generatedAppCatalog.ts` is the generated installed-app catalog that mirrors selected package metadata and imports selected client/server registrations. Runtime app definitions, client registries, and server registries derive their ordered app lists from that generated catalog while keeping behavior environment-specific.
 
