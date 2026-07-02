@@ -95,14 +95,18 @@ export function installedPackageDir(packageName, installRootDir = rootDir) {
 export function installPackedWorkspaceApp(options) {
   const {
     packageName,
+    configPath,
     installRootDir = rootDir,
     destinationDir = defaultDestinationDir,
+    sourceRootDir,
     skipBuild = false,
     quiet = false
   } = options;
   const packResult = packWorkspaceApp({
     packageName,
+    configPath,
     destinationDir,
+    sourceRootDir,
     skipBuild,
     quiet
   });

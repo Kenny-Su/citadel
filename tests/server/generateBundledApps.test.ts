@@ -186,7 +186,7 @@ function installPackedSnakeHost(options: { cacheDir: string; rootDir: string }) 
   mkdirSync(hostDir, { recursive: true });
 
   runNpm(['run', 'build', '-w', '@citadel/platform'], { cacheDir: options.cacheDir });
-  runNpm(['run', 'build', '-w', '@citadel/app-snake'], { cacheDir: options.cacheDir });
+  runNpm(['run', 'build', '--prefix', join(process.cwd(), 'packages/apps/snake')], { cacheDir: options.cacheDir });
   const { tarballPath } = packSnake({ cacheDir: options.cacheDir, destinationDir: packDir });
   writeFileSync(join(hostDir, 'workspace-apps.json'), JSON.stringify({ packages: [] }, null, 2));
   writeFileSync(join(hostDir, 'package.json'), JSON.stringify({
@@ -492,8 +492,8 @@ describe('bundled app generator package resolution', () => {
 
     writeFileSync(configPath, JSON.stringify({
       packages: [
-        '@citadel/app-chat',
-        '@citadel/app-snake'
+        { packageName: '@citadel/app-chat', sourcePath: 'packages/apps/chat' },
+        { packageName: '@citadel/app-snake', sourcePath: 'packages/apps/snake' }
       ]
     }, null, 2));
 
@@ -501,6 +501,7 @@ describe('bundled app generator package resolution', () => {
       rootDir: tempDir,
       configPath,
       quiet: true,
+      sourceRootDir: tempDir,
       runNpmCommand(args: string[]) {
         buildCommands.push(args);
       },
@@ -521,8 +522,8 @@ describe('bundled app generator package resolution', () => {
 
     expect(buildCommands).toEqual([
       ['run', 'build', '-w', '@citadel/platform'],
-      ['run', 'build', '-w', '@citadel/app-chat'],
-      ['run', 'build', '-w', '@citadel/app-snake']
+      ['run', 'build', '--prefix', join(tempDir, 'packages/apps/chat')],
+      ['run', 'build', '--prefix', join(tempDir, 'packages/apps/snake')]
     ]);
     expect(installOptions).toEqual([
       expect.objectContaining({
@@ -550,6 +551,7 @@ describe('bundled app generator package resolution', () => {
       configPath,
       quiet: true,
       skipPlatformBuild: true,
+      sourceRootDir: tempDir,
       runNpmCommand(args: string[]) {
         buildCommands.push(args);
       },
@@ -566,8 +568,8 @@ describe('bundled app generator package resolution', () => {
     });
 
     expect(buildCommands).toEqual([
-      ['run', 'build', '-w', '@citadel/app-chat'],
-      ['run', 'build', '-w', '@citadel/app-snake']
+      ['run', 'build', '--prefix', join(tempDir, 'packages/apps/chat')],
+      ['run', 'build', '--prefix', join(tempDir, 'packages/apps/snake')]
     ]);
     expect(installOptions.every((options) => options.skipBuild)).toBe(true);
   });

@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validatePackageName } from './generate-bundled-apps.mjs';
+import { defaultLocalExternalAppsConfigPath, resolveLocalExternalAppSourceDir } from './local-external-apps.mjs';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const defaultDestinationDir = join(rootDir, '.citadel/app-packs');
@@ -19,7 +20,7 @@ function usage() {
   return [
     'Usage: node scripts/pack-workspace-app.mjs <package-name> [--destination <dir>] [--skip-build] [--json]',
     '',
-    'Builds a local workspace package, then writes an npm package tarball for external-app install tests.'
+    'Builds a local package source directory, then writes an npm package tarball for external-app install tests.'
   ].join('\n');
 }
 
@@ -87,9 +88,9 @@ function runNpm(args, options = {}) {
   });
 }
 
-function readNpmOutput(args) {
+function readNpmOutput(args, options = {}) {
   return execFileSync('npm', args, {
-    cwd: rootDir,
+    cwd: options.cwd ?? rootDir,
     env: npmEnv(),
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit']
@@ -99,7 +100,9 @@ function readNpmOutput(args) {
 export function packWorkspaceApp(options) {
   const {
     packageName,
+    configPath = defaultLocalExternalAppsConfigPath,
     destinationDir = defaultDestinationDir,
+    sourceRootDir = rootDir,
     skipBuild = false,
     quiet = false
   } = options;
@@ -107,22 +110,28 @@ export function packWorkspaceApp(options) {
   validatePackageName(packageName);
   mkdirSync(destinationDir, { recursive: true });
 
+  const packageSourceDir = packageName === '@citadel/platform'
+    ? join(rootDir, 'packages/platform')
+    : resolveLocalExternalAppSourceDir(packageName, { configPath, rootDir: sourceRootDir });
+
+  if (!packageSourceDir) {
+    throw new Error(`${packageName} must be declared in local-external-apps.json with a sourcePath before it can be packed`);
+  }
+
   if (!skipBuild) {
     if (packageName !== '@citadel/platform') {
       runNpm(['run', 'build', '-w', '@citadel/platform'], { quiet });
     }
 
-    runNpm(['run', 'build', '-w', packageName], { quiet });
+    runNpm(['run', 'build', '--prefix', packageSourceDir], { quiet });
   }
 
   const packOutput = readNpmOutput([
     'pack',
     '--json',
     '--pack-destination',
-    destinationDir,
-    '-w',
-    packageName
-  ]);
+    destinationDir
+  ], { cwd: packageSourceDir });
   const [packResult] = JSON.parse(packOutput);
 
   if (!packResult?.filename || !Array.isArray(packResult.files)) {

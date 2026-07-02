@@ -1,14 +1,14 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validatePackageName } from './generate-bundled-apps.mjs';
 import { installPackedWorkspaceApp } from './install-packed-workspace-app.mjs';
+import {
+  defaultLocalExternalAppsConfigPath as configPath,
+  normalizeLocalExternalAppEntry,
+  readLocalExternalAppsConfig
+} from './local-external-apps.mjs';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const configPath = process.env.CITADEL_LOCAL_EXTERNAL_APPS_CONFIG
-  ? resolve(process.env.CITADEL_LOCAL_EXTERNAL_APPS_CONFIG)
-  : join(rootDir, 'local-external-apps.json');
 const defaultCacheDir = join(rootDir, '.citadel/npm-cache');
 
 function usage() {
@@ -43,24 +43,6 @@ export function parseArgs(argv) {
   };
 }
 
-export function readLocalExternalAppsConfig(path = configPath) {
-  const config = JSON.parse(readFileSync(path, 'utf8'));
-
-  if (!config || typeof config !== 'object' || !Array.isArray(config.packages)) {
-    throw new Error('local-external-apps.json must contain a packages array');
-  }
-
-  for (const packageName of config.packages) {
-    if (typeof packageName !== 'string' || packageName.length === 0) {
-      throw new Error('local-external-apps.json packages must contain only non-empty strings');
-    }
-
-    validatePackageName(packageName);
-  }
-
-  return config;
-}
-
 function npmEnv() {
   return {
     ...process.env,
@@ -77,19 +59,16 @@ function runNpm(args, options = {}) {
   });
 }
 
-export function buildLocalExternalAppPackages(packageNames, options = {}) {
+export function buildLocalExternalAppPackages(packageEntries, options = {}) {
   const {
     quiet = false,
     runNpmCommand = runNpm,
+    sourceRootDir = rootDir,
     skipPlatformBuild = false
   } = options;
-  const validPackageNames = packageNames.map((packageName) => {
-    validatePackageName(packageName);
+  const localExternalApps = packageEntries.map(normalizeLocalExternalAppEntry);
 
-    return packageName;
-  });
-
-  if (validPackageNames.length === 0) {
+  if (localExternalApps.length === 0) {
     return;
   }
 
@@ -97,26 +76,30 @@ export function buildLocalExternalAppPackages(packageNames, options = {}) {
     runNpmCommand(['run', 'build', '-w', '@citadel/platform'], { quiet });
   }
 
-  for (const packageName of validPackageNames) {
-    runNpmCommand(['run', 'build', '-w', packageName], { quiet });
+  for (const app of localExternalApps) {
+    runNpmCommand(['run', 'build', '--prefix', resolve(sourceRootDir, app.sourcePath)], { quiet });
   }
 }
 
 export function installLocalExternalApps(options = {}) {
   const installRootDir = options.rootDir ?? rootDir;
+  const sourceRootDir = options.sourceRootDir ?? rootDir;
   const config = readLocalExternalAppsConfig(options.configPath ?? configPath);
   const quiet = options.quiet ?? false;
 
   buildLocalExternalAppPackages(config.packages, {
     quiet,
     runNpmCommand: options.runNpmCommand,
+    sourceRootDir,
     skipPlatformBuild: options.skipPlatformBuild ?? false
   });
 
-  return config.packages.map((packageName) => (options.installPackedApp ?? installPackedWorkspaceApp)({
-    packageName,
+  return config.packages.map((app) => (options.installPackedApp ?? installPackedWorkspaceApp)({
+    packageName: app.packageName,
+    configPath: options.configPath ?? configPath,
     installRootDir,
     destinationDir: options.destinationDir,
+    sourceRootDir,
     skipBuild: true,
     quiet
   }));

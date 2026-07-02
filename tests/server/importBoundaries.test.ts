@@ -132,6 +132,13 @@ type WorkspaceAppsJson = {
   packages: string[];
 };
 
+type LocalExternalAppsJson = {
+  packages: Array<{
+    packageName: string;
+    sourcePath: string;
+  }>;
+};
+
 type RootPackageJson = {
   workspaces: string[];
   scripts: Record<string, string>;
@@ -569,19 +576,21 @@ describe('app package import boundaries', () => {
   it('declares installed app dependencies and local workspace package exports', () => {
     const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
     const workspaceApps = jsonSource<WorkspaceAppsJson>('workspace-apps.json');
-    const localExternalApps = jsonSource<WorkspaceAppsJson>('local-external-apps.json');
+    const localExternalApps = jsonSource<LocalExternalAppsJson>('local-external-apps.json');
     const rootPackage = jsonSource<RootPackageJson>('package.json');
     const packageLock = jsonSource<RootPackageLock>('package-lock.json');
     const platformPackage = jsonSource<PackageJson>('packages/platform/package.json');
     const bundledPackageNames = new Set(bundledApps.packages);
     const workspacePackageNames = new Set(workspaceApps.packages);
+    const localExternalPackageNames = localExternalApps.packages.map((app) => app.packageName);
 
     expect(rootPackage.dependencies['@citadel/platform']).toBe(platformPackage.version);
     expect(localExternalApps.packages).toEqual([
-      '@citadel/app-chat',
-      '@citadel/app-chess',
-      '@citadel/app-snake'
+      { packageName: '@citadel/app-chat', sourcePath: 'packages/apps/chat' },
+      { packageName: '@citadel/app-chess', sourcePath: 'packages/apps/chess' },
+      { packageName: '@citadel/app-snake', sourcePath: 'packages/apps/snake' }
     ]);
+    expect(localExternalPackageNames).toEqual(bundledApps.packages);
     for (const packageName of bundledApps.packages) {
       const appPackage = installedPackageJson(packageName);
 
@@ -598,11 +607,12 @@ describe('app package import boundaries', () => {
         link: true
       });
     }
-    for (const packageName of localExternalApps.packages) {
+    for (const { packageName, sourcePath } of localExternalApps.packages) {
       const app = firstPartyWorkspaceAppForPackageName(packageName);
 
       expect(bundledPackageNames.has(packageName)).toBe(true);
       expect(workspacePackageNames.has(packageName)).toBe(false);
+      expect(sourcePath).toBe(app.packagePath);
       expect(rootPackage.workspaces).toContain(app.packagePath);
       expect(packageLock.packages[`node_modules/${packageName}`]).toBeDefined();
       expect(lstatSync(join(process.cwd(), 'node_modules', ...packageName.split('/'))).isSymbolicLink()).toBe(false);
@@ -782,23 +792,30 @@ describe('app package import boundaries', () => {
     const packWorkspaceApp = source('scripts/pack-workspace-app.mjs');
     const installPackedWorkspaceApp = source('scripts/install-packed-workspace-app.mjs');
     const installLocalExternalApps = source('scripts/install-local-external-apps.mjs');
+    const localExternalAppHelpers = source('scripts/local-external-apps.mjs');
 
     expect(gitignore).toContain('dist/');
     expect(gitignore).toContain('.citadel/');
+    expect(localExternalAppHelpers).toContain('local-external-apps.json');
+    expect(localExternalAppHelpers).toContain('sourcePath');
+    expect(localExternalAppHelpers).toContain('validatePackageName');
     expect(packWorkspaceApp).toContain('.citadel/app-packs');
     expect(packWorkspaceApp).toContain('.citadel/npm-cache');
     expect(packWorkspaceApp).toContain("'pack'");
     expect(packWorkspaceApp).toContain("'--pack-destination'");
+    expect(packWorkspaceApp).toContain('resolveLocalExternalAppSourceDir');
+    expect(packWorkspaceApp).toContain("'--prefix'");
     expect(packWorkspaceApp).toContain("['run', 'build', '-w', '@citadel/platform']");
-    expect(packWorkspaceApp).toContain("['run', 'build', '-w', packageName]");
+    expect(packWorkspaceApp).not.toContain("['run', 'build', '-w', packageName]");
     expect(installPackedWorkspaceApp).toContain("join(installRootDir, 'node_modules'");
     expect(installPackedWorkspaceApp).toContain("execFileSync('tar'");
     expect(installPackedWorkspaceApp).toContain("'--strip-components=1'");
-    expect(installLocalExternalApps).toContain('local-external-apps.json');
+    expect(installLocalExternalApps).toContain('readLocalExternalAppsConfig');
     expect(installLocalExternalApps).toContain('installPackedWorkspaceApp');
     expect(installLocalExternalApps).toContain('--skip-platform-build');
     expect(installLocalExternalApps).toContain("['run', 'build', '-w', '@citadel/platform']");
-    expect(installLocalExternalApps).toContain("['run', 'build', '-w', packageName]");
+    expect(installLocalExternalApps).toContain("'--prefix'");
+    expect(installLocalExternalApps).not.toContain("['run', 'build', '-w', packageName]");
     expect(installLocalExternalApps).toContain('skipBuild: true');
     expect(packageBuildBase.extends).toBe('./tsconfig.package-base.json');
     expect(packageBuildBase.compilerOptions).toMatchObject({
@@ -861,7 +878,7 @@ describe('app package import boundaries', () => {
   it('keeps bundled app assembly on public app package surfaces', () => {
     const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
     const workspaceApps = jsonSource<WorkspaceAppsJson>('workspace-apps.json');
-    const localExternalApps = jsonSource<WorkspaceAppsJson>('local-external-apps.json');
+    const localExternalApps = jsonSource<LocalExternalAppsJson>('local-external-apps.json');
     const bundledPackageNames = new Set(bundledApps.packages);
     const config = source('src/bundledApps/config.ts');
     const definitions = source('src/bundledApps/definitions.ts');
@@ -880,9 +897,9 @@ describe('app package import boundaries', () => {
     ]);
     expect(workspaceApps.packages).toEqual([]);
     expect(localExternalApps.packages).toEqual([
-      '@citadel/app-chat',
-      '@citadel/app-chess',
-      '@citadel/app-snake'
+      { packageName: '@citadel/app-chat', sourcePath: 'packages/apps/chat' },
+      { packageName: '@citadel/app-chess', sourcePath: 'packages/apps/chess' },
+      { packageName: '@citadel/app-snake', sourcePath: 'packages/apps/snake' }
     ]);
     expect(new Set(workspaceApps.packages).size).toBe(workspaceApps.packages.length);
     for (const packageName of workspaceApps.packages) {
