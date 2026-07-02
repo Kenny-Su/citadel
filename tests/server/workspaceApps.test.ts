@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-function runWorkspaceApps(rootDir: string, configPath: string) {
-  return execFileSync(process.execPath, ['scripts/run-workspace-apps.mjs', 'build'], {
+function runWorkspaceApps(rootDir: string, configPath: string, command = 'build') {
+  return execFileSync(process.execPath, ['scripts/run-workspace-apps.mjs', command], {
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -40,7 +40,9 @@ describe('workspace app build selection', () => {
       packages: []
     }, null, 2));
 
-    expect(runWorkspaceApps(rootDir, workspaceAppsPath)).toBe('');
+    expect(runWorkspaceApps(rootDir, workspaceAppsPath, 'build')).toBe('');
+    expect(runWorkspaceApps(rootDir, workspaceAppsPath, 'typecheck')).toBe('');
+    expect(runWorkspaceApps(rootDir, workspaceAppsPath, 'clean')).toBe('');
   });
 
   it('validates workspace app build selection independently from bundled app selection', () => {

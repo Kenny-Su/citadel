@@ -471,7 +471,10 @@ describe('app package import boundaries', () => {
     expect(rootPackage.scripts.typecheck).toBe(
       'npm run typecheck:client && npm run typecheck:server && npm run typecheck:packages'
     );
-    expect(rootPackage.scripts['typecheck:packages']).toBe('npm run typecheck --workspaces --if-present');
+    expect(rootPackage.scripts['typecheck:packages']).toBe(
+      'npm run typecheck -w @citadel/platform && npm run typecheck:workspace-apps'
+    );
+    expect(rootPackage.scripts['typecheck:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs typecheck');
     expect(rootPackage.scripts['generate:bundled-apps']).toBe('node scripts/generate-bundled-apps.mjs');
     expect(rootPackage.scripts['check:bundled-apps']).toBe('node scripts/generate-bundled-apps.mjs --check');
     expect(rootPackage.scripts.predev).toBe('npm run generate:bundled-apps && npm run build:packages');
@@ -493,7 +496,10 @@ describe('app package import boundaries', () => {
     expect(rootPackage.scripts['build:packages']).toBe('npm run build:platform && npm run build:workspace-apps');
     expect(rootPackage.scripts['build:platform']).toBe('npm run build -w @citadel/platform');
     expect(rootPackage.scripts['build:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs build');
-    expect(rootPackage.scripts['clean:packages']).toBe('npm run clean --workspaces --if-present');
+    expect(rootPackage.scripts['clean:packages']).toBe(
+      'npm run clean -w @citadel/platform && npm run clean:workspace-apps'
+    );
+    expect(rootPackage.scripts['clean:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs clean');
     expect(rootPackage.workspaces).toEqual([...packagePaths]);
     expect(platformPackage.name).toBe('@citadel/platform');
     expect(platformPackage.exports).toEqual({

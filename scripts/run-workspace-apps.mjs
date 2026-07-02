@@ -55,6 +55,12 @@ async function runBuild(packageNames) {
   }
 }
 
+async function runScript(packageNames, scriptName) {
+  for (const packageName of packageNames) {
+    await runPackageScript(packageName, scriptName);
+  }
+}
+
 function runWatch(packageNames) {
   if (packageNames.length === 0) {
     return;
@@ -105,14 +111,16 @@ function runWatch(packageNames) {
   }
 }
 
-if (command !== 'build' && command !== 'build:watch') {
-  throw new Error('Usage: node scripts/run-workspace-apps.mjs <build|build:watch>');
+if (!['build', 'build:watch', 'clean', 'typecheck'].includes(command)) {
+  throw new Error('Usage: node scripts/run-workspace-apps.mjs <build|build:watch|clean|typecheck>');
 }
 
 const { packages } = readWorkspaceAppsConfig();
 
 if (command === 'build') {
   await runBuild(packages);
-} else {
+} else if (command === 'build:watch') {
   runWatch(packages);
+} else {
+  await runScript(packages, command);
 }
