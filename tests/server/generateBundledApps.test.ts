@@ -232,7 +232,6 @@ function installPackedAppsHost(options: {
     installedAppDirs[packageName] = join(hostDir, 'node_modules', ...packageName.split('/'));
   }
 
-  writeFileSync(join(hostDir, 'workspace-apps.json'), JSON.stringify({ packages: [] }, null, 2));
   writeFileSync(join(hostDir, 'package.json'), JSON.stringify({
     name: 'external-app-host-fixture',
     private: true,
@@ -381,8 +380,6 @@ describe('bundled app generator package resolution', () => {
 
   it('fails clearly when an external-only bundled app is not installed', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
-
-    writeFileSync(join(tempDir, 'workspace-apps.json'), JSON.stringify({ packages: [] }, null, 2));
 
     await expect(runGeneratorForPackages(tempDir, ['@citadel/app-missing'])).rejects.toThrow(
       'Bundled app package @citadel/app-missing is not installed at node_modules/@citadel/app-missing/package.json. Install the package or remove it from bundled-apps.json.'
@@ -681,15 +678,11 @@ describe('bundled app generator package resolution', () => {
     const hostPackage = JSON.parse(readFileSync(join(hostDir, 'package.json'), 'utf8')) as {
       workspaces: string[];
     };
-    const workspaceApps = JSON.parse(readFileSync(join(hostDir, 'workspace-apps.json'), 'utf8')) as {
-      packages: string[];
-    };
     const packageLock = JSON.parse(readFileSync(join(hostDir, 'package-lock.json'), 'utf8')) as {
       packages: Record<string, { dependencies?: Record<string, string> }>;
     };
 
     expect(hostPackage.workspaces).toEqual([]);
-    expect(workspaceApps.packages).toEqual([]);
     expect(lstatSync(installedPlatformDir).isSymbolicLink()).toBe(false);
     expect(readdirSync(installedPlatformDir).sort()).toEqual(['dist', 'package.json']);
     expect(lstatSync(installedSnakeDir).isSymbolicLink()).toBe(false);
