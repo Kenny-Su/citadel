@@ -585,6 +585,9 @@ describe('app package import boundaries', () => {
 
     expect(rootPackage.workspaces).toEqual(['packages/platform']);
     expect(rootPackage.dependencies['@citadel/platform']).toBe(platformPackage.version);
+    expect(rootPackage.dependencies.express).toBeUndefined();
+    expect(rootPackage.dependencies.nanoid).toBeUndefined();
+    expect(rootPackage.dependencies['socket.io']).toBeUndefined();
     expect(localExternalApps.packages).toEqual([
       { packageName: '@citadel/app-chat', sourcePath: 'packages/apps/chat' },
       { packageName: '@citadel/app-chess', sourcePath: 'packages/apps/chess' },
