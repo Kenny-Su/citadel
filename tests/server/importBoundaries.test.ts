@@ -93,6 +93,7 @@ type PackageExportTarget = string | {
 
 type PackageJson = {
   name: string;
+  version: string;
   files?: string[];
   exports: Record<string, PackageExportTarget>;
   scripts: Record<string, string>;
@@ -106,6 +107,20 @@ type BundledAppsJson = {
 
 type WorkspaceAppsJson = {
   packages: string[];
+};
+
+type RootPackageJson = {
+  workspaces: string[];
+  scripts: Record<string, string>;
+  dependencies: Record<string, string>;
+};
+
+type RootPackageLock = {
+  packages: Record<string, {
+    dependencies?: Record<string, string>;
+    link?: boolean;
+    resolved?: string;
+  }>;
 };
 
 type CitadelPackageMetadata = {
@@ -465,9 +480,26 @@ describe('app package import boundaries', () => {
   });
 
   it('declares workspace package exports for platform and bundled apps', () => {
-    const rootPackage = jsonSource<{ workspaces: string[]; scripts: Record<string, string> }>('package.json');
+    const bundledApps = jsonSource<BundledAppsJson>('bundled-apps.json');
+    const rootPackage = jsonSource<RootPackageJson>('package.json');
+    const packageLock = jsonSource<RootPackageLock>('package-lock.json');
     const platformPackage = jsonSource<PackageJson>('packages/platform/package.json');
 
+    expect(rootPackage.dependencies['@citadel/platform']).toBe(platformPackage.version);
+    for (const packageName of bundledApps.packages) {
+      const appId = packageName.replace('@citadel/app-', '');
+      const appPackage = jsonSource<PackageJson>(`packages/apps/${appId}/package.json`);
+
+      expect(rootPackage.dependencies[packageName]).toBe(appPackage.version);
+      expect(packageLock.packages[''].dependencies?.[packageName]).toBe(rootPackage.dependencies[packageName]);
+      expect(packageLock.packages[`node_modules/${packageName}`]).toMatchObject({
+        link: true
+      });
+    }
+    expect(packageLock.packages[''].dependencies?.['@citadel/platform']).toBe(platformPackage.version);
+    expect(packageLock.packages['node_modules/@citadel/platform']).toMatchObject({
+      link: true
+    });
     expect(rootPackage.scripts.typecheck).toBe(
       'npm run typecheck:client && npm run typecheck:server && npm run typecheck:packages'
     );
