@@ -12,7 +12,7 @@ function usage() {
   return [
     'Usage: node scripts/install-packed-workspace-app.mjs <package-name> [--root <dir>] [--destination <dir>] [--skip-build] [--json]',
     '',
-    'Packs a workspace app, then installs the packed artifact into <root>/node_modules.'
+    'Packs a local app source package, then installs the packed artifact into <root>/node_modules.'
   ].join('\n');
 }
 

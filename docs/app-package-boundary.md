@@ -10,7 +10,7 @@ Each bundled app exposes three environment-specific surfaces:
 - `./client`: browser client registration, `ClientAppModule`, and view wiring.
 - `./server`: server registration, bundle, repository resolver, and server-only exports.
 
-In the current first-party workspace apps, those surfaces are backed by `packages/apps/<app>/src/index.ts`, `packages/apps/<app>/src/client.tsx`, and `packages/apps/<app>/src/serverEntry.ts`. External apps only need to provide the package exports and installed `package.json#citadel` metadata.
+In the current first-party app source packages, those surfaces are backed by `packages/apps/<app>/src/index.ts`, `packages/apps/<app>/src/client.tsx`, and `packages/apps/<app>/src/serverEntry.ts`. External apps only need to provide the package exports and installed `package.json#citadel` metadata.
 
 Bundled app order is declared as installed package names in `bundled-apps.json`. Those selected packages should also be declared as host dependencies so a normal install creates the expected `node_modules/<package>/package.json` discovery surface. Local app packages that need monorepo build/watch support are declared separately in `workspace-apps.json`; this is a development convenience, not runtime selection. Local app packages that should behave like installed external dependencies during the migration are declared in `local-external-apps.json` with package names plus source paths; the root build packs and installs those artifacts into `node_modules` before generating the installed-app catalog. These lists may overlap while apps live in this monorepo, but installed external apps only need to appear in `bundled-apps.json` and the host dependency manifest. Each app package declares a `citadel` metadata block in its `package.json`; that package manifest metadata is the app discovery contract. Metadata includes manifest fields, client/server registration metadata, and app capabilities such as legacy service keys needed during the transition. `src/bundledApps/config.ts` validates generator input, and `src/bundledApps/generatedAppCatalog.ts` is the generated installed-app catalog that mirrors selected package metadata and imports selected client/server registrations. Runtime app definitions, client registries, and server registries derive their ordered app lists from that generated catalog while keeping behavior environment-specific.
 
@@ -35,13 +35,13 @@ Bundled apps import platform APIs through small app-facing facades. These are th
 - `@citadel/platform/server`: host server runtime.
 - `@citadel/platform/validation`: platform validation helpers.
 
-The current repo resolves package-shaped imports through installed workspace packages, currently linked into `node_modules` by npm workspaces:
+The current repo resolves package-shaped imports through installed packages. Platform remains a root workspace package; bundled apps are host dependencies that root build scripts replace with packed local external artifacts during the migration:
 
 - `@citadel/platform/app`, `@citadel/platform/client`, `@citadel/platform/server-app`, and `@citadel/platform/persistence`.
 - `@citadel/platform/server` and `@citadel/platform/validation`.
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` with `./client` and `./server` surfaces.
 
-Workspace packages exist under `packages/` as the current local development shape for the source split. They keep thin TypeScript entrypoints as package-local build inputs:
+Local package source exists under `packages/` as the current local development shape for the source split. These packages keep thin TypeScript entrypoints as package-local build inputs:
 
 - `@citadel/platform` owns its source under `packages/platform/src` and exports `./app`, `./client`, `./server-app`, `./persistence`, `./server`, and `./validation`.
 - `@citadel/app-chat`, `@citadel/app-chess`, and `@citadel/app-snake` export `.`, `./client`, and `./server`.
@@ -49,10 +49,10 @@ Workspace packages exist under `packages/` as the current local development shap
 - Each workspace package also has a local package build that emits JavaScript and declarations into its ignored `dist/` directory. Package `exports` point at those built artifacts, and the host consumes packages through workspace package resolution rather than source aliases.
 - App package artifacts are built-package artifacts: npm pack allowlists `dist` plus `package.json`, so source files and TypeScript build configs are development inputs rather than external dependency contents.
 - Chat, Chess, and Snake are local-external pilots: root build scripts install them from packed artifacts instead of workspace build/watch maintenance. Snake still carries the external-host proof: tests pack it from the source path declared in `local-external-apps.json`, install the tarball through npm into a temp host with no workspaces and an empty `workspace-apps.json`, generate a Snake-only installed-app catalog, and boot the host/server path from that packed dependency shape.
-- Local development prebuilds local workspace app artifacts once, then runs configured workspace app build watchers alongside the platform watcher, server, and Vite client so local `dist/` exports stay fresh during edits.
+- Local development prebuilds any packages listed in `workspace-apps.json`, then runs those configured package build watchers alongside the platform watcher, server, and Vite client. Apps in the local-external pilot path are prepared through packed artifacts instead.
 
 Shared platform payloads and SQLite persistence are platform-owned under `packages/platform/src`.
-The currently bundled first-party apps are still source-owning workspace packages: their implementations live under `packages/apps/<app>/src`.
+The currently bundled first-party apps are still source-owning package folders in this repo, but they are no longer root npm workspaces. Their implementations live under `packages/apps/<app>/src`, and the host sees them through installed package artifacts in `node_modules`.
 
 Shared server app services stay platform-only in `@citadel/platform/server-app`. App-specific server options, such as repository injection or chat rate limits, belong to each app server entrypoint and its app-owned server registration. The normal host server factory is `createCitadelServer`; the older `createChatServer` wrapper remains only as a compatibility adapter for legacy repository return fields and test injection.
 

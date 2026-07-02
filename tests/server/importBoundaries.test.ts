@@ -584,6 +584,7 @@ describe('app package import boundaries', () => {
     const workspacePackageNames = new Set(workspaceApps.packages);
     const localExternalPackageNames = localExternalApps.packages.map((app) => app.packageName);
 
+    expect(rootPackage.workspaces).toEqual(['packages/platform']);
     expect(rootPackage.dependencies['@citadel/platform']).toBe(platformPackage.version);
     expect(localExternalApps.packages).toEqual([
       { packageName: '@citadel/app-chat', sourcePath: 'packages/apps/chat' },
@@ -603,6 +604,7 @@ describe('app package import boundaries', () => {
       const app = firstPartyWorkspaceAppForPackageName(packageName);
 
       expect(rootPackage.workspaces).toContain(app.packagePath);
+      expect(rootPackage.dependencies[packageName]).toBe(`file:${app.packagePath}`);
       expect(packageLock.packages[`node_modules/${packageName}`]).toMatchObject({
         link: true
       });
@@ -613,8 +615,12 @@ describe('app package import boundaries', () => {
       expect(bundledPackageNames.has(packageName)).toBe(true);
       expect(workspacePackageNames.has(packageName)).toBe(false);
       expect(sourcePath).toBe(app.packagePath);
-      expect(rootPackage.workspaces).toContain(app.packagePath);
-      expect(packageLock.packages[`node_modules/${packageName}`]).toBeDefined();
+      expect(rootPackage.workspaces).not.toContain(app.packagePath);
+      expect(rootPackage.dependencies[packageName]).toBe(`file:${app.packagePath}`);
+      expect(packageLock.packages[`node_modules/${packageName}`]).toMatchObject({
+        link: true,
+        resolved: app.packagePath
+      });
       expect(lstatSync(join(process.cwd(), 'node_modules', ...packageName.split('/'))).isSymbolicLink()).toBe(false);
       expect(readdirSync(join(process.cwd(), 'node_modules', ...packageName.split('/'))).sort()).toEqual([
         'dist',
@@ -667,6 +673,9 @@ describe('app package import boundaries', () => {
     );
     expect(rootPackage.scripts['clean:workspace-apps']).toBe('node scripts/run-workspace-apps.mjs clean');
     expect(rootPackage.workspaces).toContain('packages/platform');
+    for (const app of firstPartyWorkspaceApps) {
+      expect(rootPackage.workspaces).not.toContain(app.packagePath);
+    }
     expect(platformPackage.name).toBe('@citadel/platform');
     expect(platformPackage.exports).toEqual({
       './app': { types: './dist/app.d.ts', import: './dist/app.js' },

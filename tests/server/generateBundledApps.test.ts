@@ -234,7 +234,7 @@ describe('bundled app generator package resolution', () => {
     }
   });
 
-  it('resolves current workspace app packages through installed node_modules links', () => {
+  it('resolves current local app packages through installed node_modules links', () => {
     const appPackages = resolveAppPackages({
       packages: [
         '@citadel/app-chat',
