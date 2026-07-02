@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
@@ -153,28 +153,33 @@ function packSnake(options: { cacheDir: string; destinationDir: string }) {
 
 function installPackedSnakeHost(options: { cacheDir: string; rootDir: string }) {
   const packDir = join(options.rootDir, 'packs');
-  const extractDir = join(options.rootDir, 'extract');
   const hostDir = join(options.rootDir, 'host');
   const installedSnakeDir = join(hostDir, 'node_modules/@citadel/app-snake');
   mkdirSync(packDir, { recursive: true });
-  mkdirSync(extractDir, { recursive: true });
+  mkdirSync(hostDir, { recursive: true });
 
+  runNpm(['run', 'build', '-w', '@citadel/platform'], { cacheDir: options.cacheDir });
   runNpm(['run', 'build', '-w', '@citadel/app-snake'], { cacheDir: options.cacheDir });
   const { tarballPath } = packSnake({ cacheDir: options.cacheDir, destinationDir: packDir });
-  execFileSync('tar', ['-xzf', tarballPath, '-C', extractDir]);
-  mkdirSync(dirname(installedSnakeDir), { recursive: true });
-  cpSync(join(extractDir, 'package'), installedSnakeDir, { recursive: true });
+  writeFileSync(join(hostDir, 'workspace-apps.json'), JSON.stringify({ packages: [] }, null, 2));
+  writeFileSync(join(hostDir, 'package.json'), JSON.stringify({
+    name: 'snake-external-host-fixture',
+    private: true,
+    type: 'module',
+    workspaces: [],
+    dependencies: {
+      '@citadel/app-snake': `file:${tarballPath}`,
+      '@citadel/platform': `file:${join(process.cwd(), 'packages/platform')}`,
+      react: `file:${join(process.cwd(), 'node_modules/react')}`
+    }
+  }, null, 2));
+  runNpm(['install', '--ignore-scripts', '--offline', '--prefix', hostDir], { cacheDir: options.cacheDir });
 
   return {
     hostDir,
-    installedSnakeDir
+    installedSnakeDir,
+    tarballPath
   };
-}
-
-function linkHostDependency(hostDir: string, packageName: string) {
-  const dependencyPath = join(hostDir, 'node_modules', ...packageName.split('/'));
-  mkdirSync(dirname(dependencyPath), { recursive: true });
-  symlinkSync(join(process.cwd(), 'node_modules', ...packageName.split('/')), dependencyPath, 'dir');
 }
 
 function transpileGeneratedCatalog(hostDir: string) {
@@ -370,13 +375,14 @@ describe('bundled app generator package resolution', () => {
     const cacheDir = join(tempDir, 'npm-cache');
     const { hostDir, installedSnakeDir } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
     const [{ path: generatedCatalogPath }] = generatorOutputs(hostDir);
-    linkHostDependency(hostDir, '@citadel/platform');
-    linkHostDependency(hostDir, 'react');
 
     await runGeneratorForPackages(hostDir, ['@citadel/app-snake']);
 
     const generatedCatalog = readFileSync(generatedCatalogPath, 'utf8');
+    const installedSnakeFiles = readdirSync(installedSnakeDir).sort();
 
+    expect(lstatSync(installedSnakeDir).isSymbolicLink()).toBe(false);
+    expect(installedSnakeFiles).toEqual(['dist', 'package.json']);
     expect(JSON.parse(readFileSync(join(installedSnakeDir, 'package.json'), 'utf8')).citadel.appId).toBe('snake');
     expect(generatedCatalog).toContain('"@citadel/app-snake"');
     expect(generatedCatalog).toContain('appId: "snake"');
@@ -399,17 +405,23 @@ describe('bundled app generator package resolution', () => {
   it('boots a snake-only host catalog from a packed external dependency', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
     const cacheDir = join(tempDir, 'npm-cache');
-    const { hostDir } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
+    const { hostDir, installedSnakeDir, tarballPath } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
     const probePath = join(hostDir, 'probe.ts');
-    linkHostDependency(hostDir, '@citadel/platform');
-    linkHostDependency(hostDir, 'react');
-    writeFileSync(join(hostDir, 'workspace-apps.json'), JSON.stringify({ packages: [] }, null, 2));
-    writeFileSync(join(hostDir, 'package.json'), JSON.stringify({
-      name: 'snake-external-host-fixture',
-      private: true,
-      type: 'module',
-      workspaces: []
-    }, null, 2));
+    const hostPackage = JSON.parse(readFileSync(join(hostDir, 'package.json'), 'utf8')) as {
+      workspaces: string[];
+    };
+    const workspaceApps = JSON.parse(readFileSync(join(hostDir, 'workspace-apps.json'), 'utf8')) as {
+      packages: string[];
+    };
+    const packageLock = JSON.parse(readFileSync(join(hostDir, 'package-lock.json'), 'utf8')) as {
+      packages: Record<string, { dependencies?: Record<string, string> }>;
+    };
+
+    expect(hostPackage.workspaces).toEqual([]);
+    expect(workspaceApps.packages).toEqual([]);
+    expect(lstatSync(installedSnakeDir).isSymbolicLink()).toBe(false);
+    expect(readdirSync(installedSnakeDir).sort()).toEqual(['dist', 'package.json']);
+    expect(packageLock.packages[''].dependencies?.['@citadel/app-snake']).toBe(`file:${tarballPath}`);
 
     await runGeneratorForPackages(hostDir, ['@citadel/app-snake']);
     transpileGeneratedCatalog(hostDir);
@@ -535,8 +547,6 @@ describe('bundled app generator package resolution', () => {
     const cacheDir = join(tempDir, 'npm-cache');
     const { hostDir } = installPackedSnakeHost({ cacheDir, rootDir: tempDir });
     const probePath = join(hostDir, 'probe.mjs');
-    linkHostDependency(hostDir, '@citadel/platform');
-    linkHostDependency(hostDir, 'react');
     writeFileSync(probePath, [
       "import * as root from '@citadel/app-snake';",
       "import * as client from '@citadel/app-snake/client';",
