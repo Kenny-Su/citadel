@@ -654,12 +654,18 @@ describe('app package import boundaries', () => {
       '@citadel/app-chess',
       '@citadel/app-snake'
     ]);
-    expect(workspaceApps.packages).toEqual(bundledApps.packages);
+    expect(workspaceApps.packages).toEqual([
+      '@citadel/app-chat',
+      '@citadel/app-chess',
+      '@citadel/app-snake'
+    ]);
     expect(config).toContain("from '../../bundled-apps.json'");
     expect(config).not.toContain("'@citadel/app-chat'");
     expect(config).not.toContain("'@citadel/app-chess'");
     expect(config).not.toContain("'@citadel/app-snake'");
     expect(generator).toContain("'node_modules'");
+    expect(generator).not.toContain('workspace-apps.json');
+    expect(generator).not.toContain('workspaceApps');
     expect(generator).not.toContain('rootPackagePath');
     expect(generator).not.toContain('readWorkspacePackageManifests');
     expect(generator).not.toContain('root workspaces');

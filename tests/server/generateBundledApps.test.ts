@@ -363,6 +363,13 @@ describe('bundled app generator package resolution', () => {
     const probePath = join(hostDir, 'probe.ts');
     linkHostDependency(hostDir, '@citadel/platform');
     linkHostDependency(hostDir, 'react');
+    writeFileSync(join(hostDir, 'workspace-apps.json'), JSON.stringify({ packages: [] }, null, 2));
+    writeFileSync(join(hostDir, 'package.json'), JSON.stringify({
+      name: 'snake-external-host-fixture',
+      private: true,
+      type: 'module',
+      workspaces: []
+    }, null, 2));
 
     await runGeneratorForPackages(hostDir, ['@citadel/app-snake']);
     transpileGeneratedCatalog(hostDir);
