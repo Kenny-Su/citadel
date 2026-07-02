@@ -398,19 +398,30 @@ describe('bundled app generator package resolution', () => {
     expect(packedFiles).not.toContain('tsconfig.build.json');
   });
 
-  it('installs packed snake over an existing workspace link', () => {
+  it.each([
+    {
+      appId: 'chess',
+      packageName: '@citadel/app-chess',
+      sourcePath: 'packages/apps/chess'
+    },
+    {
+      appId: 'snake',
+      packageName: '@citadel/app-snake',
+      sourcePath: 'packages/apps/snake'
+    }
+  ])('installs packed $appId over an existing workspace link', ({ appId, packageName, sourcePath }) => {
     tempDir = mkdtempSync(join(tmpdir(), 'citadel-generator-'));
     const cacheDir = join(tempDir, 'npm-cache');
-    const installedSnakeDir = join(tempDir, 'node_modules/@citadel/app-snake');
+    const installedAppDir = join(tempDir, 'node_modules', ...packageName.split('/'));
     const previousCache = process.env.CITADEL_PACK_NPM_CACHE;
 
-    mkdirSync(dirname(installedSnakeDir), { recursive: true });
-    symlinkSync(join(process.cwd(), 'packages/apps/snake'), installedSnakeDir, 'dir');
+    mkdirSync(dirname(installedAppDir), { recursive: true });
+    symlinkSync(join(process.cwd(), sourcePath), installedAppDir, 'dir');
 
     try {
       process.env.CITADEL_PACK_NPM_CACHE = cacheDir;
       installPackedWorkspaceApp({
-        packageName: '@citadel/app-snake',
+        packageName,
         installRootDir: tempDir,
         destinationDir: join(tempDir, 'packs'),
         skipBuild: false,
@@ -424,9 +435,9 @@ describe('bundled app generator package resolution', () => {
       }
     }
 
-    expect(lstatSync(installedSnakeDir).isSymbolicLink()).toBe(false);
-    expect(readdirSync(installedSnakeDir).sort()).toEqual(['dist', 'package.json']);
-    expect(JSON.parse(readFileSync(join(installedSnakeDir, 'package.json'), 'utf8')).citadel.appId).toBe('snake');
+    expect(lstatSync(installedAppDir).isSymbolicLink()).toBe(false);
+    expect(readdirSync(installedAppDir).sort()).toEqual(['dist', 'package.json']);
+    expect(JSON.parse(readFileSync(join(installedAppDir, 'package.json'), 'utf8')).citadel.appId).toBe(appId);
   });
 
   it('generates bundled app registries from a packed snake dependency install', async () => {

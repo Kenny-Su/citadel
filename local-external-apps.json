@@ -1,5 +1,6 @@
 {
   "packages": [
+    "@citadel/app-chess",
     "@citadel/app-snake"
   ]
 }

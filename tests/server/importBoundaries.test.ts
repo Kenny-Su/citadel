@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -577,7 +577,7 @@ describe('app package import boundaries', () => {
     const workspacePackageNames = new Set(workspaceApps.packages);
 
     expect(rootPackage.dependencies['@citadel/platform']).toBe(platformPackage.version);
-    expect(localExternalApps.packages).toEqual(['@citadel/app-snake']);
+    expect(localExternalApps.packages).toEqual(['@citadel/app-chess', '@citadel/app-snake']);
     for (const packageName of bundledApps.packages) {
       const appPackage = installedPackageJson(packageName);
 
@@ -601,6 +601,11 @@ describe('app package import boundaries', () => {
       expect(workspacePackageNames.has(packageName)).toBe(false);
       expect(rootPackage.workspaces).toContain(app.packagePath);
       expect(packageLock.packages[`node_modules/${packageName}`]).toBeDefined();
+      expect(lstatSync(join(process.cwd(), 'node_modules', ...packageName.split('/'))).isSymbolicLink()).toBe(false);
+      expect(readdirSync(join(process.cwd(), 'node_modules', ...packageName.split('/'))).sort()).toEqual([
+        'dist',
+        'package.json'
+      ]);
     }
     expect(packageLock.packages[''].dependencies?.['@citadel/platform']).toBe(platformPackage.version);
     expect(packageLock.packages['node_modules/@citadel/platform']).toMatchObject({
@@ -864,10 +869,9 @@ describe('app package import boundaries', () => {
       '@citadel/app-snake'
     ]);
     expect(workspaceApps.packages).toEqual([
-      '@citadel/app-chat',
-      '@citadel/app-chess'
+      '@citadel/app-chat'
     ]);
-    expect(localExternalApps.packages).toEqual(['@citadel/app-snake']);
+    expect(localExternalApps.packages).toEqual(['@citadel/app-chess', '@citadel/app-snake']);
     expect(new Set(workspaceApps.packages).size).toBe(workspaceApps.packages.length);
     for (const packageName of workspaceApps.packages) {
       expect(bundledPackageNames.has(packageName)).toBe(true);
